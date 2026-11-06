@@ -22,24 +22,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install Dependencies
         run: npm install
 
-      # Next.js প্রজেক্ট স্ট্যাটিক এক্সপোর্ট বা বিল্ড করার জন্য (next.config.ts এ output: 'export' কনফিগার করা থাকলে এটি আউট ফোল্ডার বানাবে)
       - name: Build Project
-        run: |
-          npm run build || npx next build
+        run: npm run build || npx next build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      # প্রজেক্টের বিল্ড ফোল্ডার (আউটপুট যেমন out বা .next) গিটহাব পেজে আপলোড করা
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './out' # যদি তোমার বিল্ড ফোল্ডার অন্য নাম হয় (যেমন dist বা .next), তবে সেটি এখানে দিতে হবে
+          path: './out'
 
       - name: Deploy to GitHub Pages
         id: deployment
