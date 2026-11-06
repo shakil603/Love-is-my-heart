@@ -1319,3 +1319,9 @@ main { overflow: clip; }
 @media (max-width: 520px) {
   .landing-demo-facts { grid-template-columns: 1fr; }
 }
+
+/* Android download */
+.landing-apk { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 18px; }
+.landing-apk .button { text-decoration: none; background: transparent; color: var(--ink); border-color: rgba(37,30,38,0.22); }
+.landing-apk .button:hover { background: rgba(37,30,38,0.05); }
+.landing-apk small { color: var(--muted); font-size: 9px; letter-spacing: 0.02em; text-transform: uppercase; }

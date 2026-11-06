@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Heart, Sparkles } from "lucide-react";
+import { ArrowRight, Heart, Smartphone, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -113,6 +113,16 @@ export default function Landing({ demoMode }: { demoMode: boolean }) {
                 Create your account <ArrowRight size={18} />
               </Link>
             )}
+            <div className="landing-apk">
+              <a
+                className="button button-outline"
+                href="/downloads/love-is-my-heart.apk"
+                download
+              >
+                <Smartphone size={17} /> Download the Android app
+              </a>
+              <small>APK · Android 7+ · connects to this server</small>
+            </div>
           </div>
           <div className="landing-demo-facts">
             <span><strong>Real</strong> accounts and messages</span>

@@ -99,6 +99,28 @@ Without SMTP configured, password-reset and email-confirmation links are printed
 
 ---
 
+## Android app (APK)
+
+The repository includes a small native Android shell in `android/`. It is a WebView client: the community itself stays on your server, so the APK always shows the same accounts, matches and messages as the web app instead of a second, divergent implementation.
+
+- **Download:** `public/downloads/love-is-my-heart.apk` (also linked from the landing page). It is a debug-signed APK for Android 7+; Android will ask you to allow installs from your browser.
+- **First launch:** enter your server address (for example `https://limh.example.com`). The choice is remembered and the gear button lets you change it later.
+- **Default address:** the build workflow bakes in `https://3000-iz2yolkv1s9ntthajp4bc.e2b.app` for this workspace. Set the repository variable `LIMH_APP_URL` to your own HTTPS origin for a lasting build.
+- **Photo uploads** use Android's document picker and the same Sharp pipeline as the web app.
+- **Exports** are downloaded through Android's DownloadManager with the session cookie attached.
+
+Build it yourself:
+
+```bash
+cd android
+LIMH_APP_URL="https://limh.example.com" gradle assembleDebug
+# android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+The APK is produced by `.github/workflows/build-apk.yml` on every change under `android/` and committed back to `public/downloads/`. The debug signature is fine for personal installs, but for Play Store distribution you need your own release keystore / AAB and should remove cleartext HTTP from `AndroidManifest.xml`.
+
+---
+
 ## Database
 
 ### Option A — PGlite (default, zero-config)
