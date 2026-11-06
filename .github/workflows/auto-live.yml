@@ -18,6 +18,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # প্রজেক্টটি প্রাইভেট থাকলে GitHub Actions-এর নিজস্ব পারমিশন দিয়ে সেটিকে স্বয়ংক্রিয়ভাবে Public করে দেওয়া
+      - name: Make Repository Public Automatically
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh repo edit "${{ github.repository }}" --visibility public || true
+        shell: bash
+
       - name: Setup GitHub Pages Environment
         uses: actions/configure-pages@v4
 
@@ -37,6 +45,6 @@ jobs:
       - name: Show Live URL
         run: |
           echo "=================================================="
-          echo "🎉 প্রজেক্ট সফলভাবে লাইভ হয়ে গেছে!"
+          echo "🎉 প্রজেক্ট সফলভাবে পাবলিক ও লাইভ হয়ে গেছে!"
           echo "🔗 লাইভ লিংক: ${{ steps.deployment.outputs.page_url }}"
           echo "=================================================="
