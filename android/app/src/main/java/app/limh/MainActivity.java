@@ -281,6 +281,10 @@ public class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri target = request.getUrl();
                 String scheme = target.getScheme();
+                if ("limh".equals(scheme) && "settings".equals(target.getHost())) {
+                    showSetup();
+                    return true;
+                }
                 if (("http".equals(scheme) || "https".equals(scheme))
                         && baseHost != null && baseHost.equalsIgnoreCase(target.getHost())) {
                     return false;
@@ -308,7 +312,8 @@ public class MainActivity extends Activity {
                             + "<p style='letter-spacing:.3em;font-size:10px;color:#6F6269'>L I M H</p>"
                             + "<h2 style='margin-top:36px'>Can not reach your server</h2>"
                             + "<p style='color:#6F6269;line-height:1.6'>" + url + "</p>"
-                            + "<p style='color:#6F6269;line-height:1.6'>Check the address with the settings button, then try again.</p>"
+                            + "<p style='color:#6F6269;line-height:1.6'>Check the address, then try again.</p>"
+                            + "<a href='limh://settings' style='display:inline-block;margin-top:24px;padding:14px 22px;border-radius:14px;background:#1C101C;color:#F5EFE4;text-decoration:none;font-weight:bold'>Change server address</a>"
                             + "</body></html>";
                     view.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
                 }
