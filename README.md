@@ -103,9 +103,11 @@ Without SMTP configured, password-reset and email-confirmation links are printed
 
 The repository includes a small native Android shell in `android/`. It is a WebView client: the community itself stays on your server, so the APK always shows the same accounts, matches and messages as the web app instead of a second, divergent implementation.
 
-- **Download:** `public/downloads/love-is-my-heart.apk` (also linked from the landing page). It is a debug-signed APK for Android 7+; Android will ask you to allow installs from your browser.
-- **First launch:** enter your server address (for example `https://limh.example.com`). The choice is remembered and the gear button lets you change it later.
+- **Download:** `/downloads/love-is-my-heart.apk` (also linked from the landing page and stored at `public/downloads/love-is-my-heart.apk`). It is a debug-signed APK for Android 7+; Android will ask you to allow installs from your browser.
+- **First launch:** the app opens your server (the live preview by default). The gear button and the error screen's **Change server address** button let you point it at any deployment; the choice is remembered.
 - **Default address:** the build workflow bakes in `https://3000-iz2yolkv1s9ntthajp4bc.e2b.app` for this workspace. Set the repository variable `LIMH_APP_URL` to your own HTTPS origin for a lasting build.
+- **Custom domains:** set `BETTER_AUTH_URL` and add the origin to `BETTER_AUTH_TRUSTED_ORIGINS`, otherwise Better Auth rejects sign-in with `INVALID_ORIGIN`.
+- **Updating a debug install:** each workflow build uses a fresh debug key, so uninstall the previous APK before installing a rebuilt one (or configure your own keystore for release signing).
 - **Photo uploads** use Android's document picker and the same Sharp pipeline as the web app.
 - **Exports** are downloaded through Android's DownloadManager with the session cookie attached.
 
