@@ -58,16 +58,25 @@ jobs:
           ls -lh app/build/outputs/apk/debug/ || true
           exit $status
 
-      - name: Publish the failure log
-        if: steps.apk_build.outcome == 'failure'
+      - name: Save build diagnostics
+        if: always()
+        continue-on-error: true
         run: |
+          set -x
+          pwd
+          ls -la android-build.log || true
           mkdir -p public/downloads
-          cp android-build.log public/downloads/android-build.log
+          if [ -f android-build.log ]; then
+            cp -f android-build.log public/downloads/android-build.log
+          else
+            echo "android-build.log was not created" > public/downloads/android-build.log
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/downloads/android-build.log
-          git commit -m "Record Android build failure [skip ci]" || true
+          git add -f public/downloads/android-build.log
+          git commit -m "Record Android build log [skip ci]" || true
           git push origin "HEAD:${GITHUB_REF_NAME}" || true
+          exit 0
 
       - name: Stop when the build failed
         if: steps.apk_build.outcome == 'failure'
