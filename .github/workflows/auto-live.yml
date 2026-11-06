@@ -1,4 +1,4 @@
-name: Auto Public and Live Link Generator
+name: Next.js Auto Live Deploy
 
 on:
   push:
@@ -12,31 +12,46 @@ permissions:
   id-token: write
 
 jobs:
-  deploy-live:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup GitHub Pages Environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      # Next.js প্রজেক্ট স্ট্যাটিক এক্সপোর্ট বা বিল্ড করার জন্য (next.config.ts এ output: 'export' কনফিগার করা থাকলে এটি আউট ফোল্ডার বানাবে)
+      - name: Build Project
+        run: |
+          npm run build || npx next build
+
+      - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Package Project Artifact
+      # প্রজেক্টের বিল্ড ফোল্ডার (আউটপুট যেমন out বা .next) গিটহাব পেজে আপলোড করা
+      - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: './out' # যদি তোমার বিল্ড ফোল্ডার অন্য নাম হয় (যেমন dist বা .next), তবে সেটি এখানে দিতে হবে
 
-      - name: Publish to Live URL
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
 
   output-link:
-    needs: deploy-live
+    needs: build-and-deploy
     runs-on: ubuntu-latest
     steps:
       - name: Show Live URL
         run: |
           echo "=================================================="
-          echo "🎉 প্রজেক্ট সফলভাবে লাইভ হয়ে গেছে!"
+          echo "🎉 প্রজেক্ট সফলভাবে বিল্ড ও লাইভ হয়ে গেছে!"
           echo "🔗 লাইভ লিংক: ${{ steps.deployment.outputs.page_url }}"
           echo "=================================================="
