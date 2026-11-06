@@ -101,7 +101,7 @@ export default function Hero({
           </motion.div>
         </motion.div>
 
-        <div className="hero-collage" aria-label="A preview of the Velora community">
+        <div className="hero-collage" aria-label="A preview of the Love Is My Heart community">
           <motion.button
             className="hero-card hero-card-main"
             style={{ y: mainY, scale: mainScale, rotate: mainRotate }}

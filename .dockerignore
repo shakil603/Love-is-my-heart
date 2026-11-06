@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.github
+.data
+coverage
+public/uploads/*
+!public/uploads/.gitkeep
+.env
+.env.*
+!.env.example
+*.log
+README.md

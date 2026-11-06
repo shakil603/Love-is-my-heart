@@ -5,8 +5,8 @@ import "@fontsource/instrument-serif";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Velora — Less swiping. More something real.",
-  description: "A thoughtful dating experience built around honest intentions, shared interests and conversations with somewhere to go.",
+  title: "Love Is My Heart (LIMH) — Less swiping. More something real.",
+  description: "Love Is My Heart (LIMH) is a thoughtful, open-source dating experience built around honest intentions, shared interests and conversations with somewhere to go.",
 };
 
 export const viewport: Viewport = {
