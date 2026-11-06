@@ -20,6 +20,8 @@ jobs:
 
       - name: Setup GitHub Pages Environment
         uses: actions/configure-pages@v4
+        with:
+          enable: true
 
       - name: Package Project Artifact
         uses: actions/upload-pages-artifact@v3
