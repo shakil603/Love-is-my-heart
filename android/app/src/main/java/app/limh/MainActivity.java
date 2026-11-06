@@ -89,6 +89,13 @@ public class MainActivity extends Activity {
         root = new FrameLayout(this);
         root.setBackgroundColor(CREAM);
         root.setOnApplyWindowInsetsListener((view, insets) -> {
+            // Android 15 (API 35) draws the app edge-to-edge, so the content
+            // needs the status/navigation and keyboard insets as padding.
+            // Earlier releases already lay the content out below the bars.
+            if (Build.VERSION.SDK_INT < 35) {
+                view.setPadding(0, 0, 0, 0);
+                return insets;
+            }
             int bottom = insets.getSystemWindowInsetBottom();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 bottom = Math.max(bottom, insets.getInsets(WindowInsets.Type.ime()).bottom);
@@ -112,11 +119,14 @@ public class MainActivity extends Activity {
     private void applySystemBarStyle() {
         Window window = getWindow();
         window.setStatusBarColor(CREAM);
-        window.setNavigationBarColor(CREAM);
         View decor = window.getDecorView();
         int flags = decor.getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            window.setNavigationBarColor(CREAM);
             flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        } else {
+            // Dark navigation bar keeps the white system buttons readable.
+            window.setNavigationBarColor(PLUM);
         }
         decor.setSystemUiVisibility(flags);
     }
