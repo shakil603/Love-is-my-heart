@@ -62,6 +62,8 @@ public class MainActivity extends Activity {
     private static final String PREFS = "limh";
     private static final String KEY_URL = "server_url";
     private static final String KEY_MODE = "app_mode";
+    private static final String DEMO_HOST = "appassets.androidplatform.net";
+    private static final String DEMO_URL = "https://" + DEMO_HOST + "/demo/index.html";
     private static final int FILE_CHOOSER_REQUEST = 1001;
 
     private static final int PLUM = Color.parseColor("#1C101C");
@@ -290,7 +292,7 @@ public class MainActivity extends Activity {
 
     private void loadDemo() {
         prefs.edit().putString(KEY_MODE, "demo").apply();
-        loadWeb("https://limh.local/demo/index.html", true);
+        loadWeb(DEMO_URL, true);
     }
 
     private void loadWeb(String url, boolean demoMode) {
@@ -340,7 +342,7 @@ public class MainActivity extends Activity {
                     showSetup();
                     return true;
                 }
-                if (demoMode && "limh.local".equalsIgnoreCase(target.getHost())) {
+                if (demoMode && DEMO_HOST.equalsIgnoreCase(target.getHost())) {
                     return false;
                 }
                 if (("http".equals(scheme) || "https".equals(scheme))
@@ -358,7 +360,7 @@ public class MainActivity extends Activity {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 if (demoMode && request.getUrl() != null
-                        && "limh.local".equalsIgnoreCase(request.getUrl().getHost())) {
+                        && DEMO_HOST.equalsIgnoreCase(request.getUrl().getHost())) {
                     WebResourceResponse response = serveDemoAsset(request.getUrl().getPath());
                     if (response != null) return response;
                 }
