@@ -1,6 +1,7 @@
 package app.limh;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +11,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.InputType;
@@ -18,13 +20,16 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.JsResult;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -37,18 +42,26 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Love Is My Heart (LIMH) native Android shell.
  *
- * The community itself is a self-hosted Next.js app, so the APK is deliberately
- * a thin, secure WebView client rather than a second, divergent implementation.
- * On first launch people enter the address of their server; the choice is
- * remembered, and the gear button lets them change it at any time.
+ * The APK opens with a complete offline demo bundled in assets/demo, so it is a
+ * finished dating experience with no server and no setup. The same shell can
+ * also connect to a self-hosted Love Is My Heart server: the setup screen is
+ * reachable from the demo and remembers the chosen address.
  */
 public class MainActivity extends Activity {
 
     private static final String PREFS = "limh";
     private static final String KEY_URL = "server_url";
+    private static final String KEY_MODE = "app_mode";
     private static final int FILE_CHOOSER_REQUEST = 1001;
 
     private static final int PLUM = Color.parseColor("#1C101C");
@@ -71,24 +84,39 @@ public class MainActivity extends Activity {
 
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
-        Window window = getWindow();
-        window.setStatusBarColor(PLUM);
-        window.setNavigationBarColor(PLUM);
-
         root = new FrameLayout(this);
         root.setBackgroundColor(CREAM);
         root.setOnApplyWindowInsetsListener((view, insets) -> {
-            view.setPadding(0, insets.getSystemWindowInsetTop(), 0, insets.getSystemWindowInsetBottom());
+            int bottom = insets.getSystemWindowInsetBottom();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                bottom = Math.max(bottom, insets.getInsets(WindowInsets.Type.ime()).bottom);
+            }
+            view.setPadding(0, insets.getSystemWindowInsetTop(), 0, bottom);
             return insets;
         });
         setContentView(root);
+        applySystemBarStyle();
 
-        String saved = prefs.getString(KEY_URL, BuildConfig.DEFAULT_URL);
-        if (saved == null || saved.trim().isEmpty()) {
-            showSetup();
-        } else {
+        String mode = prefs.getString(KEY_MODE, "demo");
+        String saved = prefs.getString(KEY_URL, "");
+        if ("server".equals(mode) && !saved.isEmpty()) {
             loadApp(normalize(saved));
+        } else {
+            loadDemo();
         }
+    }
+
+    /** Cream chrome and dark system icons keep the demo readable on Android 15. */
+    private void applySystemBarStyle() {
+        Window window = getWindow();
+        window.setStatusBarColor(CREAM);
+        window.setNavigationBarColor(CREAM);
+        View decor = window.getDecorView();
+        int flags = decor.getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        decor.setSystemUiVisibility(flags);
     }
 
     private int dp(int value) {
@@ -176,9 +204,10 @@ public class MainActivity extends Activity {
         box.addView(heading, headingParams);
 
         TextView description = label(
-                "This app is a native shell for your Love Is My Heart community. "
-                        + "Paste the address of your deployed server to sign in, browse, message and upload photos.\n\n"
-                        + "আপনার সার্ভারের ঠিকানা দিন। উদাহরণ: https://your-app.example.com",
+                "The offline demo already works on this phone — no server needed. "
+                        + "To meet real people, paste the address of your deployed Love Is My Heart server, "
+                        + "then sign in, browse and message as usual.\n\n"
+                        + "ডেমো ব্যবহার করতে সার্ভার লাগবে না। আসল মানুষদের সাথে মিলতে আপনার সার্ভারের ঠিকানা দিন।",
                 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams descriptionParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -203,7 +232,7 @@ public class MainActivity extends Activity {
         box.addView(input, inputParams);
 
         Button open = new Button(this);
-        open.setText("Open Love Is My Heart");
+        open.setText("Connect to server");
         open.setAllCaps(false);
         open.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         open.setTextColor(CREAM);
@@ -224,9 +253,25 @@ public class MainActivity extends Activity {
                         Toast.LENGTH_LONG).show();
                 return;
             }
-            prefs.edit().putString(KEY_URL, normalized).apply();
             loadApp(normalized);
         });
+
+        Button demo = new Button(this);
+        demo.setText("Open the offline demo");
+        demo.setAllCaps(false);
+        demo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        demo.setTextColor(INK);
+        GradientDrawable demoBackground = new GradientDrawable();
+        demoBackground.setColor(Color.TRANSPARENT);
+        demoBackground.setCornerRadius(dp(16));
+        demoBackground.setStroke(dp(1), Color.parseColor("#D6CBBB"));
+        demo.setBackground(demoBackground);
+        demo.setPadding(dp(18), dp(13), dp(18), dp(13));
+        LinearLayout.LayoutParams demoParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        demoParams.topMargin = dp(10);
+        box.addView(demo, demoParams);
+        demo.setOnClickListener(view -> loadDemo());
 
         TextView note = label(
                 "The server must be reachable from this phone. A site running on your computer "
@@ -239,6 +284,16 @@ public class MainActivity extends Activity {
     }
 
     private void loadApp(String url) {
+        prefs.edit().putString(KEY_MODE, "server").putString(KEY_URL, url).apply();
+        loadWeb(url, false);
+    }
+
+    private void loadDemo() {
+        prefs.edit().putString(KEY_MODE, "demo").apply();
+        loadWeb("https://limh.local/demo/index.html", true);
+    }
+
+    private void loadWeb(String url, boolean demoMode) {
         showingSetup = false;
         baseHost = Uri.parse(url).getHost();
         root.removeAllViews();
@@ -281,9 +336,12 @@ public class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri target = request.getUrl();
                 String scheme = target.getScheme();
-                if ("limh".equals(scheme) && "settings".equals(target.getHost())) {
+                if ("limh".equals(scheme)) {
                     showSetup();
                     return true;
+                }
+                if (demoMode && "limh.local".equalsIgnoreCase(target.getHost())) {
+                    return false;
                 }
                 if (("http".equals(scheme) || "https".equals(scheme))
                         && baseHost != null && baseHost.equalsIgnoreCase(target.getHost())) {
@@ -295,6 +353,16 @@ public class MainActivity extends Activity {
                     // No browser installed; keep the current page.
                 }
                 return true;
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                if (demoMode && request.getUrl() != null
+                        && "limh.local".equalsIgnoreCase(request.getUrl().getHost())) {
+                    WebResourceResponse response = serveDemoAsset(request.getUrl().getPath());
+                    if (response != null) return response;
+                }
+                return super.shouldInterceptRequest(view, request);
             }
 
             @Override
@@ -310,9 +378,9 @@ public class MainActivity extends Activity {
                             + "<body style='font-family:sans-serif;background:#F5EFE4;color:#251E26;padding:40px 26px;text-align:center'>"
                             + "<div style='font-family:serif;font-size:30px'>Love Is My Heart</div>"
                             + "<p style='letter-spacing:.3em;font-size:10px;color:#6F6269'>L I M H</p>"
-                            + "<h2 style='margin-top:36px'>Can not reach your server</h2>"
+                            + "<h2 style='margin-top:36px'>" + (demoMode ? "The demo could not load" : "Can not reach your server") + "</h2>"
                             + "<p style='color:#6F6269;line-height:1.6'>" + url + "</p>"
-                            + "<p style='color:#6F6269;line-height:1.6'>Check the address, then try again.</p>"
+                            + "<p style='color:#6F6269;line-height:1.6'>" + (demoMode ? "Reopen the app, or use the settings button to connect a server." : "Check the address, then try again.") + "</p>"
                             + "<a href='limh://settings' style='display:inline-block;margin-top:24px;padding:14px 22px;border-radius:14px;background:#1C101C;color:#F5EFE4;text-decoration:none;font-weight:bold'>Change server address</a>"
                             + "</body></html>";
                     view.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
@@ -326,6 +394,27 @@ public class MainActivity extends Activity {
                 if (progress == null) return;
                 progress.setVisibility(newProgress >= 100 ? View.GONE : View.VISIBLE);
                 progress.setProgress(newProgress);
+            }
+
+            @Override
+            public boolean onJsAlert(WebView view, String url, String message, JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setMessage(message)
+                        .setPositiveButton("OK", (dialog, which) -> result.confirm())
+                        .setOnCancelListener(dialog -> result.cancel())
+                        .show();
+                return true;
+            }
+
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setMessage(message)
+                        .setPositiveButton("OK", (dialog, which) -> result.confirm())
+                        .setNegativeButton("Cancel", (dialog, which) -> result.cancel())
+                        .setOnCancelListener(dialog -> result.cancel())
+                        .show();
+                return true;
             }
 
             @Override
@@ -376,6 +465,8 @@ public class MainActivity extends Activity {
 
         webView.loadUrl(url);
 
+        if (demoMode) return;
+
         TextView settingsButton = new TextView(this);
         settingsButton.setText("\u2699");
         settingsButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 21);
@@ -391,6 +482,42 @@ public class MainActivity extends Activity {
                 dp(44), dp(44), Gravity.TOP | Gravity.END);
         settingsParams.setMargins(0, dp(12), dp(12), 0);
         root.addView(settingsButton, settingsParams);
+    }
+
+    private String mimeFor(String assetPath) {
+        String path = assetPath.toLowerCase();
+        if (path.endsWith(".html")) return "text/html";
+        if (path.endsWith(".css")) return "text/css";
+        if (path.endsWith(".js")) return "application/javascript";
+        if (path.endsWith(".json")) return "application/json";
+        if (path.endsWith(".webp")) return "image/webp";
+        if (path.endsWith(".png")) return "image/png";
+        if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+        if (path.endsWith(".svg")) return "image/svg+xml";
+        if (path.endsWith(".woff2")) return "font/woff2";
+        return "application/octet-stream";
+    }
+
+    private WebResourceResponse serveDemoAsset(String path) {
+        String assetPath = path == null || path.isEmpty() ? "/demo/index.html" : path;
+        if ("/demo".equals(assetPath) || "/demo/".equals(assetPath)) assetPath = "/demo/index.html";
+        if (!assetPath.startsWith("/demo/")) return null;
+        String file = assetPath.substring(1);
+        String mime = mimeFor(file);
+        boolean text = mime.startsWith("text/") || mime.contains("javascript")
+                || mime.contains("json") || mime.contains("svg");
+        try {
+            InputStream stream = getAssets().open(file);
+            WebResourceResponse response = new WebResourceResponse(
+                    mime, text ? "UTF-8" : null, stream);
+            Map<String, String> headers = new HashMap<>();
+            headers.put("Cache-Control", "no-store");
+            response.setResponseHeaders(headers);
+            return response;
+        } catch (IOException exception) {
+            return new WebResourceResponse("text/plain", "UTF-8",
+                    new ByteArrayInputStream("Demo asset not found".getBytes(StandardCharsets.UTF_8)));
+        }
     }
 
     @Override
@@ -409,6 +536,10 @@ public class MainActivity extends Activity {
     @Override
     public void onBackPressed() {
         if (showingSetup) {
+            if ("demo".equals(prefs.getString(KEY_MODE, "demo"))) {
+                loadDemo();
+                return;
+            }
             String saved = prefs.getString(KEY_URL, "");
             if (!saved.isEmpty()) {
                 loadApp(normalize(saved));

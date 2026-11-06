@@ -37,9 +37,10 @@ jobs:
       - name: Build the APK
         working-directory: android
         env:
-          # Repository variable overrides this. The fallback points at the live
-          # preview for this workspace; people can change it inside the app.
-          LIMH_APP_URL: ${{ vars.LIMH_APP_URL || 'https://3000-iz2yolkv1s9ntthajp4bc.e2b.app' }}
+          # Optional: a repository variable can pre-fill the server address in
+          # the setup screen. The app opens its bundled offline demo by default,
+          # so no deployment URL is baked in.
+          LIMH_APP_URL: ${{ vars.LIMH_APP_URL }}
         run: |
           gradle assembleDebug --no-daemon --stacktrace
           ls -lh app/build/outputs/apk/debug/

@@ -12,10 +12,10 @@ android {
         applicationId 'app.limh'
         minSdk 24
         targetSdk 35
-        versionCode 1
-        versionName '1.0.0'
-        // Where the app points on first launch. The setup screen always lets
-        // people change it, so the same APK works with any deployment.
+        versionCode 2
+        versionName '1.1.0'
+        // Optional address pre-filled in the server setup screen. The app opens
+        // its bundled offline demo on first launch, so no URL is required.
         buildConfigField 'String', 'DEFAULT_URL', '"' + limhUrl.replace('\\', '\\\\').replace('"', '\\"') + '"'
     }
 

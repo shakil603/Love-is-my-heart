@@ -101,22 +101,30 @@ Without SMTP configured, password-reset and email-confirmation links are printed
 
 ## Android app (APK)
 
-The repository includes a small native Android shell in `android/`. It is a WebView client: the community itself stays on your server, so the APK always shows the same accounts, matches and messages as the web app instead of a second, divergent implementation.
+The repository includes a native Android shell in `android/`. It ships **two modes in one APK**:
+
+1. **Offline demo (default, no setup).** The whole experience is bundled in `android/app/src/main/assets/demo/` and served inside the WebView from an internal `https://limh.local` origin. First launch goes straight to the welcome screen, onboarding, discovery, matches, chat, filters and profile editing. Eight labelled sample profiles, portraits, automatic local replies and saved state all live on the phone. Nothing is sent to a server; state is kept in WebView `localStorage` under `limh.demo.v1` and can be cleared from **You → Reset this demo**.
+2. **Live server (optional).** From **You → Connect a live server** (or `limh://server`) you can point the same shell at your own deployment. The address is remembered, and the gear button or the error screen's **Change server address** takes you back to setup.
 
 - **Download:** `/downloads/love-is-my-heart.apk` (also linked from the landing page and stored at `public/downloads/love-is-my-heart.apk`). It is a debug-signed APK for Android 7+; Android will ask you to allow installs from your browser.
-- **First launch:** the app opens your server (the live preview by default). The gear button and the error screen's **Change server address** button let you point it at any deployment; the choice is remembered.
-- **Default address:** the build workflow bakes in `https://3000-iz2yolkv1s9ntthajp4bc.e2b.app` for this workspace. Set the repository variable `LIMH_APP_URL` to your own HTTPS origin for a lasting build.
+- **No URL is baked in:** the demo is always available offline, so a dead preview or an unset variable can never leave the app on an error page.
+- **Optional pre-fill:** set the repository variable `LIMH_APP_URL` (or pass it to Gradle) to pre-fill the setup field with your deployment. The app still opens the demo first.
 - **Custom domains:** set `BETTER_AUTH_URL` and add the origin to `BETTER_AUTH_TRUSTED_ORIGINS`, otherwise Better Auth rejects sign-in with `INVALID_ORIGIN`.
 - **Updating a debug install:** each workflow build uses a fresh debug key, so uninstall the previous APK before installing a rebuilt one (or configure your own keystore for release signing).
-- **Photo uploads** use Android's document picker and the same Sharp pipeline as the web app.
-- **Exports** are downloaded through Android's DownloadManager with the session cookie attached.
+- **Photo uploads** use Android's document picker and the same Sharp pipeline as the web app when connected to a server.
+- **Exports** are downloaded through Android's DownloadManager with the session cookie attached when connected to a server.
+
+The demo portraits are generated sample images, not real members. The demo is explicit about this in the UI.
 
 Build it yourself:
 
 ```bash
 cd android
-LIMH_APP_URL="https://limh.example.com" gradle assembleDebug
+gradle assembleDebug
 # android/app/build/outputs/apk/debug/app-debug.apk
+
+# Optional: pre-fill the setup screen
+LIMH_APP_URL="https://limh.example.com" gradle assembleDebug
 ```
 
 The APK is produced by `.github/workflows/build-apk.yml` on every change under `android/` and committed back to `public/downloads/`. The debug signature is fine for personal installs, but for Play Store distribution you need your own release keystore / AAB and should remove cleartext HTTP from `AndroidManifest.xml`.

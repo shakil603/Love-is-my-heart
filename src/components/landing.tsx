@@ -121,7 +121,7 @@ export default function Landing({ demoMode }: { demoMode: boolean }) {
               >
                 <Smartphone size={17} /> Download the Android app
               </a>
-              <small>APK · Android 7+ · connects to this server</small>
+              <small>APK · Android 7+ · offline demo included</small>
             </div>
           </div>
           <div className="landing-demo-facts">
