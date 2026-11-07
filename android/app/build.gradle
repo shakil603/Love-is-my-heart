@@ -37,6 +37,11 @@ android {
 }
 
 dependencies {
+    // Align the Kotlin stdlib that AndroidX Activity and SplashScreen pull in.
+    // Without this the older kotlin-stdlib-jdk8 duplicates classes from the
+    // newer kotlin-stdlib and checkDebugDuplicateClasses fails.
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.9.24')
+
     // Open-source AndroidX helper for serving bundled web assets over a
     // same-origin https:// URL inside the WebView.
     implementation 'androidx.webkit:webkit:1.12.1'
