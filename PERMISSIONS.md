@@ -1,48 +1,48 @@
 # Permissions
 
-The Android app declares **one** permission:
+This build declares the permission groups shown in the owner's reference
+screenshots (WhatsApp, imo and Facebook Lite). They are wired to an Android
+permission setup reachable from **You → Privacy & permissions → Android setup**
+(and from `limh://permissions`).
 
-| Permission | Type | Why |
+| Group | Manifest permissions | Used by the demo? |
 | --- | --- | --- |
-| `android.permission.INTERNET` | Normal | Loads the offline demo from the APK, or the self-hosted server address you choose. |
+| Network | `INTERNET` | Yes — loads the bundled demo or the server you choose. |
+| Camera | `CAMERA` | No. Declared for a future in-app camera. |
+| Microphone | `RECORD_AUDIO` | No. Declared for future voice notes. |
+| Contacts | `READ_CONTACTS` | No. The demo never reads the address book. |
+| Location | `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION` | No. Distance uses the city you type. |
+| Phone | `READ_PHONE_STATE`, `READ_PHONE_NUMBERS`, `CALL_PHONE` | No. The demo never places calls. |
+| SMS | `READ_SMS`, `SEND_SMS`, `RECEIVE_SMS` | No. The demo never reads or sends messages. |
+| Call logs | `READ_CALL_LOG` | No. The demo never reads call history. |
+| Calendar | `READ_CALENDAR`, `WRITE_CALENDAR` | No. No calendar feature is connected. |
+| Media / storage | `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`, `READ_EXTERNAL_STORAGE` (≤32), `WRITE_EXTERNAL_STORAGE` (≤28) | No. The profile photo uses the system picker, which needs no storage permission. |
+| Notifications | `POST_NOTIFICATIONS` (Android 13+) | No. The demo does not post notifications. |
 
-That is the whole list. There are no runtime permission prompts because there is
-no feature that needs one.
+## How it was set up
 
-## What is deliberately not requested
+- The manifest declares every group above.
+- **Android setup** opens a native dialog that explains the list and has a
+  **Request all** button. It uses AndroidX `ActivityResultContracts` to request
+  the runtime permissions that exist on the device's Android version. Groups
+  that Android restricts (SMS and call logs) may still be refused by the system.
+- **App settings** opens the system permission screen, where each toggle can be
+  changed individually.
+- The web demo's privacy sheet records the same audit, including which groups
+  the demo actually reads (network and an on-demand photo picker only).
 
-| Permission | Status | Reason |
-| --- | --- | --- |
-| Camera | Not requested | There is no in-app camera. If you pick a photo, the system picker can use a camera app and returns only the image you choose. |
-| Contacts | Not requested | There is no contact matching or invite flow. |
-| Location | Not requested | Distance is calculated from the city you type, not from GPS. |
-| Microphone | Not requested | Voice notes are not implemented. |
-| Phone | Not requested | The app never places calls. |
-| SMS | Not requested | The app never reads or sends SMS. |
-| Call logs | Not requested | The app never reads call history. |
-| Calendar | Not requested | There is no calendar feature. |
-| Storage / photos | Not requested | Profile photos use the Android photo picker. The picker returns one URI that you selected; the app cannot browse or scan the rest of your gallery. |
-| Notifications | Not requested | The demo has no push or background notifications. |
+## Before a Play Store release
 
-## Why not copy the permission screens from WhatsApp, imo or Facebook Lite?
+Do **not** publish this permission set as-is. Google Play requires every
+sensitive permission to map to a declared core feature, and SMS/call-log access
+is restricted to default handlers and a small set of approved use cases. A
+dating app with no SMS, calling or contact-sync feature would be rejected.
 
-Those apps have calls, SMS, contact sync, location features and media libraries.
-This app does not. Declaring permissions that no feature uses would:
+For a store build, remove the groups without a feature, then add each one back
+only with:
 
-- make Android Settings show scary toggles the app never needs;
-- create a larger attack surface if the WebView or a dependency is compromised;
-- risk a Google Play policy rejection, because sensitive permissions must be
-  tied to a documented core feature; and
-- train users to grant access without understanding why.
+1. the feature that uses it,
+2. a runtime rationale shown before the system prompt, and
+3. the matching Play Console declaration.
 
-If a feature is added later, add its permission **with** the feature, a runtime
-rationale, and a privacy note in the app. The in-app **You → Privacy &
-permissions** sheet lists the current audit.
-
-## Photo picker
-
-The edit-profile sheet opens the system picker through the WebView file chooser.
-No `READ_MEDIA_IMAGES`, `READ_EXTERNAL_STORAGE` or `CAMERA` permission is needed:
-the picker is a separate system component, and the app receives only the chosen
-image. The image is resized to 512 px and stored as a data URL in the local demo
-state on the phone.
+The APK in `public/downloads/` is a sideloaded demo build, not a Play release.

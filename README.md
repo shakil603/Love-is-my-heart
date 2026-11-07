@@ -121,9 +121,10 @@ for the main libraries, their licences and what each one does. The APK uses
 AndroidX's open-source `WebViewAssetLoader` to serve the bundled demo from a
 same-origin `https://` URL and AndroidX SplashScreen for the launch screen.
 
-The APK declares only `INTERNET`. See [PERMISSIONS.md](PERMISSIONS.md) for the
-full audit, including why camera, contacts, location, microphone, phone, SMS,
-call logs, calendar and broad storage access are deliberately not requested.
+The APK declares the full permission set requested for this demo and exposes
+Android setup at **You → Privacy & permissions**. See
+[PERMISSIONS.md](PERMISSIONS.md) for the group-by-group table, what the demo
+actually reads, and the Play Store warning before publishing.
 
 Build it yourself:
 

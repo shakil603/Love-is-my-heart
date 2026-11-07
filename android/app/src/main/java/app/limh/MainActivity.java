@@ -1,6 +1,6 @@
 package app.limh;
 
-import android.app.Activity;
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.Context;
@@ -14,6 +14,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.Settings;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -42,6 +43,9 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.ComponentActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.webkit.WebViewAssetLoader;
 
@@ -49,7 +53,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -60,7 +66,7 @@ import java.util.Map;
  * also connect to a self-hosted Love Is My Heart server: the setup screen is
  * reachable from the demo and remembers the chosen address.
  */
-public class MainActivity extends Activity {
+public class MainActivity extends ComponentActivity {
 
     private static final String PREFS = "limh";
     private static final String KEY_URL = "server_url";
@@ -82,11 +88,24 @@ public class MainActivity extends Activity {
     private String baseHost;
     private boolean showingSetup = true;
     private ValueCallback<Uri[]> filePathCallback;
+    private ActivityResultLauncher<String[]> permissionLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
+
+        permissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestMultiplePermissions(),
+                result -> {
+                    int granted = 0;
+                    for (Boolean value : result.values()) {
+                        if (Boolean.TRUE.equals(value)) granted++;
+                    }
+                    Toast.makeText(this,
+                            granted + " of " + result.size() + " permissions granted. You can change them any time in Android Settings.",
+                            Toast.LENGTH_LONG).show();
+                });
 
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
@@ -368,7 +387,11 @@ public class MainActivity extends Activity {
                 Uri target = request.getUrl();
                 String scheme = target.getScheme();
                 if ("limh".equals(scheme)) {
-                    showSetup();
+                    if ("permissions".equals(target.getHost())) {
+                        showPermissions();
+                    } else {
+                        showSetup();
+                    }
                     return true;
                 }
                 if (demoMode && DEMO_HOST.equalsIgnoreCase(target.getHost())) {
@@ -561,6 +584,60 @@ public class MainActivity extends Activity {
             return;
         }
         super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    private void showPermissions() {
+        new AlertDialog.Builder(this)
+                .setTitle("Android permissions")
+                .setMessage("The manifest declares the groups in the reference screenshots: "
+                        + "camera, microphone, contacts, location, phone, SMS, call logs, "
+                        + "calendar, media/storage and notifications.\n\n"
+                        + "This demo does not read any of that data. Grant only what you are "
+                        + "comfortable with; Android may still refuse restricted groups such as "
+                        + "SMS and call logs. Google Play requires a core-feature declaration for "
+                        + "them, so this build is for sideloading, not a Play release.")
+                .setPositiveButton("Request all", (dialog, which) -> requestAllPermissions())
+                .setNeutralButton("App settings", (dialog, which) -> openAppSettings())
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private void openAppSettings() {
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:" + getPackageName()));
+        startActivity(intent);
+    }
+
+    private void requestAllPermissions() {
+        List<String> permissions = new ArrayList<>();
+        permissions.add(Manifest.permission.CAMERA);
+        permissions.add(Manifest.permission.RECORD_AUDIO);
+        permissions.add(Manifest.permission.READ_CONTACTS);
+        permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        permissions.add(Manifest.permission.READ_PHONE_STATE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            permissions.add(Manifest.permission.READ_PHONE_NUMBERS);
+        }
+        permissions.add(Manifest.permission.CALL_PHONE);
+        permissions.add(Manifest.permission.READ_CALL_LOG);
+        permissions.add(Manifest.permission.READ_SMS);
+        permissions.add(Manifest.permission.SEND_SMS);
+        permissions.add(Manifest.permission.RECEIVE_SMS);
+        permissions.add(Manifest.permission.READ_CALENDAR);
+        permissions.add(Manifest.permission.WRITE_CALENDAR);
+        if (Build.VERSION.SDK_INT >= 33) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+            permissions.add(Manifest.permission.READ_MEDIA_IMAGES);
+            permissions.add(Manifest.permission.READ_MEDIA_VIDEO);
+            permissions.add(Manifest.permission.READ_MEDIA_AUDIO);
+        } else {
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            }
+        }
+        permissionLauncher.launch(permissions.toArray(new String[0]));
     }
 
     @Override
