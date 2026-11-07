@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   apk:
@@ -54,15 +55,12 @@ jobs:
           path: android/build.log
           if-no-files-found: ignore
 
-      - name: Commit build log on failure
+      - name: Report build log on failure
         if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/build.log build-error.log
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add build-error.log
-          git commit -m "Record Android build error [skip ci]" || true
-          git push origin "HEAD:${GITHUB_REF_NAME}" || true
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "Android build error ($GITHUB_SHA)" --body-file android/build.log || true
 
       - name: Copy the APK into the web app
         run: |
