@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: write
-  issues: write
 
 jobs:
   apk:
@@ -46,21 +45,6 @@ jobs:
           set -o pipefail
           gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
           ls -lh app/build/outputs/apk/debug/
-
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-build-log
-          path: android/build.log
-          if-no-files-found: ignore
-
-      - name: Report build log on failure
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh issue create --repo "$GITHUB_REPOSITORY" --title "Android build error ($GITHUB_SHA)" --body-file android/build.log || true
 
       - name: Copy the APK into the web app
         run: |
