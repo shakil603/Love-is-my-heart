@@ -12,8 +12,8 @@ android {
         applicationId 'app.limh'
         minSdk 24
         targetSdk 35
-        versionCode 3
-        versionName '1.1.1'
+        versionCode 4
+        versionName '1.2.0'
         // Optional address pre-filled in the server setup screen. The app opens
         // its bundled offline demo on first launch, so no URL is required.
         buildConfigField 'String', 'DEFAULT_URL', '"' + limhUrl.replace('\\', '\\\\').replace('"', '\\"') + '"'
@@ -40,4 +40,5 @@ dependencies {
     // Open-source AndroidX helper for serving bundled web assets over a
     // same-origin https:// URL inside the WebView.
     implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'androidx.core:core-splashscreen:1.0.1'
 }

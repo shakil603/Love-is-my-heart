@@ -451,7 +451,9 @@
   function profileScreen() {
     const me = state.me;
     return '<span class="eyebrow">Your space</span><h1 class="display screen-heading">This is you.</h1>' +
-      '<div class="own-card"><div class="own-photo"><span class="initials">' + esc(initials(me.name)) + '</span>' +
+      '<div class="own-card"><div class="own-photo">' + (me.photo
+        ? '<img class="own-photo-img" src="' + esc(me.photo) + '" alt="Your profile photo" />'
+        : '<span class="initials">' + esc(initials(me.name)) + '</span>') +
       '<span class="sample-pill own-badge">Your profile · demo</span></div>' +
       '<div class="own-copy"><h2>' + esc(me.name || "You") + ', ' + me.age + '</h2>' +
       '<p>' + (me.occupation ? esc(me.occupation) + " · " : "") + esc(me.city) + '</p>' +
@@ -461,6 +463,7 @@
       '<div class="settings-list">' +
       '<button class="setting-row" data-act="sheet" data-sheet="edit">' + icon("edit") + '<span><strong>Edit your profile</strong><small>Name, city, bio and interests</small></span>' + icon("chevron") + '</button>' +
       '<button class="setting-row" data-act="sheet" data-sheet="prefs">' + icon("settings") + '<span><strong>Your preferences</strong><small>Age, distance and intention</small></span>' + icon("chevron") + '</button>' +
+      '<button class="setting-row" data-act="sheet" data-sheet="privacy">' + icon("shield") + '<span><strong>Privacy &amp; permissions</strong><small>Exactly what this app can access</small></span>' + icon("chevron") + '</button>' +
       '<div class="setting-row">' + icon("chat") + '<span><strong>Read receipts</strong><small>Show when you have read a message</small></span><button class="toggle' + (state.settings.readReceipts ? " on" : "") + '" data-act="toggle" data-key="readReceipts" aria-label="Read receipts"><i></i></button></div>' +
       '<div class="setting-row">' + icon("bell") + '<span><strong>Notifications</strong><small>Quiet updates inside the demo</small></span><button class="toggle' + (state.settings.notifications ? " on" : "") + '" data-act="toggle" data-key="notifications" aria-label="Notifications"><i></i></button></div>' +
       '<a class="setting-row" href="limh://server">' + icon("server") + '<span><strong>Connect a live server</strong><small>Meet real people on your own deployment</small></span>' + icon("chevron") + '</a>' +
@@ -540,10 +543,27 @@
     return shared.length ? "You both have " + shared.slice(0, 2).join(" and ").toLowerCase() + " on your wavelength." : "A shared intention brought you together. The rest is yours to discover.";
   }
 
+  function privacySheet() {
+    const row = (title, stateText, detail, tone) => '<div class="permission-row"><div class="permission-mark ' + (tone || "off") + '">' + icon(tone === "on" ? "check" : "x") + '</div>' +
+      '<div><strong>' + title + '</strong><small>' + detail + '</small></div><span class="permission-state ' + (tone || "off") + '">' + stateText + '</span></div>';
+    return sheetShell("Privacy &amp; permissions.", "This app asks only for what a feature actually uses.",
+      '<div class="permission-list">' +
+      row("Internet", "Required", "Loads the bundled demo, or the server address you choose.", "on") +
+      row("Photos", "On demand", "The system picker opens only when you tap Choose. The app never scans your gallery.", "on") +
+      row("Notifications", "Not requested", "The demo has no push or background notifications.", "off") +
+      row("Camera", "Not requested", "There is no in-app camera; the system picker can still use one if you choose.", "off") +
+      row("Microphone", "Not requested", "Voice notes are not built.", "off") +
+      row("Contacts, location, phone, SMS, call logs, calendar", "Not requested", "No feature needs them, so they are not in the manifest.", "off") +
+      '</div>' +
+      '<p class="demo-note">Android Settings lists every permission an app declares, even ones it never asks for. A smaller list is safer and is what Google Play expects. If a future feature needs one of these, it should be added together with the feature and a clear in-app explanation.</p>',
+      '<div class="sheet-actions"><button class="btn btn-primary" data-act="close-overlay">Got it</button></div>');
+  }
+
   function sheetOverlay(name) {
     if (name === "filters") return filtersSheet();
     if (name === "edit") return editSheet();
     if (name === "prefs") return prefsSheet();
+    if (name === "privacy") return privacySheet();
     return "";
   }
 
@@ -580,6 +600,12 @@
   function editSheet() {
     const me = state.me;
     return sheetShell("Edit your profile.", "A specific bio gives people something to reply to.",
+      '<div class="photo-edit"><div class="photo-edit-thumb">' + (me.photo
+        ? '<img src="' + esc(me.photo) + '" alt="" />'
+        : esc(initials(me.name))) + '</div>' +
+      '<div class="photo-edit-copy"><strong>Profile photo</strong><small>Choose from the system picker. It stays on this phone.</small></div>' +
+      '<button type="button" class="btn btn-outline btn-compact" data-act="change-photo">Choose</button></div>' +
+      '<input id="photo-input" type="file" accept="image/*" hidden />' +
       '<label class="field"><span>First name</span><input id="e-name" value="' + esc(me.name) + '" /></label>' +
       '<div class="field-row"><label class="field"><span>Age</span><input id="e-age" type="number" min="18" max="99" value="' + me.age + '" /></label>' +
       '<label class="field"><span>City</span><select id="e-city">' + CITIES.map((city) => '<option' + (city.name === me.city ? " selected" : "") + '>' + city.name + '</option>').join("") + '</select></label></div>' +
@@ -951,6 +977,40 @@
     showToast("Unmatched.");
   }
 
+  document.addEventListener("change", (event) => {
+    if (event.target.id !== "photo-input") return;
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    event.target.value = "";
+    if (!file.type || file.type.indexOf("image/") !== 0) {
+      setError("sheet-error", "Choose an image file.");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const max = 512;
+      const scale = Math.min(1, max / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      state.me.photo = canvas.toDataURL("image/jpeg", 0.85);
+      save();
+      render();
+      const thumb = document.querySelector(".photo-edit-thumb");
+      if (thumb) thumb.innerHTML = '<img src="' + esc(state.me.photo) + '" alt="" />';
+      showToast("Photo updated.");
+      URL.revokeObjectURL(objectUrl);
+    };
+    image.onerror = () => {
+      setError("sheet-error", "That image could not be read. Try another one.");
+      URL.revokeObjectURL(objectUrl);
+    };
+    image.src = objectUrl;
+  });
+
   document.addEventListener("click", (event) => {
     const chatMenuBackdrop = event.target.closest("[data-chat-menu-backdrop]");
     if (chatMenuBackdrop && event.target === chatMenuBackdrop) { ui.chatMenu = false; renderOverlay(); return; }
@@ -988,6 +1048,10 @@
     else if (act === "open-chat") openChat(target.getAttribute("data-match"));
     else if (act === "close-overlay") closeOverlay();
     else if (act === "sheet") openOverlay("sheet", target.getAttribute("data-sheet"));
+    else if (act === "change-photo") {
+      const input = document.getElementById("photo-input");
+      if (input) input.click();
+    }
     else if (act === "save-filters") saveFilters();
     else if (act === "save-prefs") savePrefs();
     else if (act === "save-profile") saveProfile();

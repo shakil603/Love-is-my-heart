@@ -42,6 +42,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.splashscreen.SplashScreen;
 import androidx.webkit.WebViewAssetLoader;
 
 import java.io.ByteArrayInputStream;
@@ -84,6 +85,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
 
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);

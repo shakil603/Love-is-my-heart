@@ -7,4 +7,10 @@
         <item name="android:windowLightNavigationBar">false</item>
         <item name="android:windowBackground">#F5EFE4</item>
     </style>
+    <style name="Theme.LIMH.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#F5EFE4</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_heart</item>
+        <item name="windowSplashScreenIconBackgroundColor">#D8FF7A</item>
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
+    </style>
 </resources>

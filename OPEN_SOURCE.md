@@ -29,6 +29,7 @@ building blocks, their licences and what they do here.
 | --- | --- | --- |
 | [AndroidX WebKit](https://developer.android.com/jetpack/androidx/releases/webkit) / `WebViewAssetLoader` | Apache-2.0 | Serving bundled demo assets from a same-origin `https://` origin |
 | [AndroidX Core](https://developer.android.com/jetpack/androidx) | Apache-2.0 | Transitive AndroidX support |
+| [AndroidX SplashScreen](https://developer.android.com/develop/ui/views/launch/splash-screen) | Apache-2.0 | Branded launch screen with backward compatibility |
 | Android WebView / Chromium | BSD-style / Apache-2.0 | Rendering the demo and the self-hosted web app |
 
 The Android shell no longer hand-rolls URL interception. `WebViewAssetLoader`

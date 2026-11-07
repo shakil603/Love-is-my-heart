@@ -119,7 +119,11 @@ The demo portraits are generated sample images, not real members. The demo is ex
 The app is built on open-source projects. See [OPEN_SOURCE.md](OPEN_SOURCE.md)
 for the main libraries, their licences and what each one does. The APK uses
 AndroidX's open-source `WebViewAssetLoader` to serve the bundled demo from a
-same-origin `https://` URL.
+same-origin `https://` URL and AndroidX SplashScreen for the launch screen.
+
+The APK declares only `INTERNET`. See [PERMISSIONS.md](PERMISSIONS.md) for the
+full audit, including why camera, contacts, location, microphone, phone, SMS,
+call logs, calendar and broad storage access are deliberately not requested.
 
 Build it yourself:
 
