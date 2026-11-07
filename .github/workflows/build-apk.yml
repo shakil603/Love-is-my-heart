@@ -54,6 +54,16 @@ jobs:
           path: android/build.log
           if-no-files-found: ignore
 
+      - name: Commit build log on failure
+        if: failure()
+        run: |
+          cp android/build.log build-error.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build-error.log
+          git commit -m "Record Android build error [skip ci]" || true
+          git push origin "HEAD:${GITHUB_REF_NAME}" || true
+
       - name: Copy the APK into the web app
         run: |
           mkdir -p public/downloads
