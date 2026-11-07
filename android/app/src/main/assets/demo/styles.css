@@ -41,6 +41,7 @@ a { color: inherit; }
 
 .app-frame {
   width: 100%;
+  overflow-x: clip;
   max-width: 540px;
   min-height: 100vh;
   margin: 0 auto;
@@ -141,6 +142,8 @@ a { color: inherit; }
 .field span { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
 .field input, .field select, .field textarea {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--line);
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.45);
@@ -150,7 +153,7 @@ a { color: inherit; }
 }
 .field textarea { resize: vertical; min-height: 84px; line-height: 1.5; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--ink); background: #fffdf9; }
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .interests { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
 .chip {
   padding: 8px 11px;
@@ -168,6 +171,7 @@ a { color: inherit; }
 
 /* ---------------------------------------------------------------- discover */
 .discover-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.discover-top > div:first-child { min-width: 0; }
 .edit-count { margin-top: 8px; color: var(--muted); font-size: 11px; }
 .filter-trigger {
   display: inline-flex; align-items: center; gap: 6px;
@@ -201,7 +205,7 @@ a { color: inherit; }
 .status-line i { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); }
 .card-copy h2 { margin-top: 7px; font-family: var(--serif); font-size: 42px; font-weight: 400; letter-spacing: -0.025em; line-height: 0.98; }
 .card-meta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px 12px; font-size: 11px; opacity: 0.82; }
-.card-bio { margin-top: 12px; font-size: 12px; line-height: 1.6; opacity: 0.9; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.card-bio { margin-top: 12px; font-size: 12px; line-height: 1.6; opacity: 0.9; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .card-interests { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .card-interests span { padding: 6px 8px; border-radius: 999px; border: 1px solid rgba(245,239,228,0.3); font-size: 8.5px; font-weight: 700; }
 .card-prompt { margin-top: 13px; padding: 12px 13px; border-radius: 14px; background: rgba(245,239,228,0.11); border: 1px solid rgba(245,239,228,0.16); }
@@ -239,10 +243,10 @@ a { color: inherit; }
 .empty-card .btn { margin-top: 18px; }
 
 /* ---------------------------------------------------------------- matches */
-.match-list { display: grid; gap: 10px; margin-top: 20px; }
+.match-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 20px; min-width: 0; }
 .match-item {
   display: flex; align-items: center; gap: 12px;
-  width: 100%; text-align: left;
+  width: 100%; max-width: 100%; min-width: 0; overflow: hidden; text-align: left;
   padding: 12px; border-radius: 18px;
   background: rgba(255,255,255,0.36); border: 1px solid var(--line);
 }
@@ -252,7 +256,7 @@ a { color: inherit; }
 .match-copy { min-width: 0; flex: 1; }
 .match-copy strong { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .match-copy strong b { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 9px; background: var(--coral); color: var(--plum); font-size: 8.5px; display: inline-grid; place-items: center; }
-.match-copy p { margin-top: 3px; color: var(--muted); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.match-copy p { margin-top: 3px; max-width: 100%; color: var(--muted); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .match-time { color: var(--muted); font-size: 9px; flex: none; }
 
 /* ---------------------------------------------------------------- profile */
@@ -336,7 +340,9 @@ a { color: inherit; }
 @keyframes slidein { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .chat-header { display: flex; align-items: center; gap: 11px; padding: calc(12px + env(safe-area-inset-top)) 14px 12px; border-bottom: 1px solid var(--line); background: rgba(245,239,228,0.97); }
 .chat-back { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; flex: none; }
-.chat-person { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; text-align: left; }
+.chat-person { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; text-align: left; overflow: hidden; }
+.chat-person span { min-width: 0; }
+.chat-person strong, .chat-person small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-person img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
 .chat-person strong { display: block; font-size: 13px; }
 .chat-person small { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; }
@@ -346,7 +352,7 @@ a { color: inherit; }
 .chat-origin img { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px; }
 .chat-origin h3 { font-family: var(--serif); font-size: 25px; font-weight: 400; line-height: 1.05; }
 .chat-origin p { margin-top: 5px; color: var(--muted); font-size: 10.5px; }
-.msg { max-width: 80%; padding: 10px 13px; border-radius: 15px; font-size: 12px; line-height: 1.55; }
+.msg { max-width: 80%; padding: 10px 13px; border-radius: 15px; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
 .msg.them { align-self: flex-start; background: #fffdf9; border: 1px solid var(--line); border-bottom-left-radius: 5px; }
 .msg.me { align-self: flex-end; background: var(--plum); color: var(--paper); border-bottom-right-radius: 5px; }
 .msg.system { align-self: center; max-width: 90%; background: transparent; color: var(--muted); font-size: 9.5px; text-align: center; padding: 4px 8px; }
@@ -362,7 +368,7 @@ a { color: inherit; }
 .chat-starters p { color: var(--muted); font-size: 10.5px; line-height: 1.5; }
 .starter { display: block; width: 100%; text-align: left; margin-top: 7px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); font-size: 11.5px; line-height: 1.4; }
 .chat-composer { display: flex; gap: 8px; align-items: flex-end; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--paper); }
-.chat-composer textarea { flex: 1; resize: none; max-height: 110px; min-height: 44px; padding: 12px 14px; border-radius: 18px; border: 1px solid var(--line); background: #fffdf9; font-size: 13px; outline: none; line-height: 1.4; }
+.chat-composer textarea { flex: 1; min-width: 0; resize: none; max-height: 110px; min-height: 44px; padding: 12px 14px; border-radius: 18px; border: 1px solid var(--line); background: #fffdf9; font-size: 13px; outline: none; line-height: 1.4; }
 .chat-composer button { width: 44px; height: 44px; border-radius: 50%; background: var(--plum); color: var(--lime); display: grid; place-items: center; flex: none; }
 
 .chat-menu { position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 76; background: rgba(28,16,28,0.42); backdrop-filter: blur(3px); display: flex; align-items: flex-end; justify-content: center; animation: fade 0.18s ease; }

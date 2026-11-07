@@ -116,6 +116,11 @@ The repository includes a native Android shell in `android/`. It ships **two mod
 
 The demo portraits are generated sample images, not real members. The demo is explicit about this in the UI.
 
+The app is built on open-source projects. See [OPEN_SOURCE.md](OPEN_SOURCE.md)
+for the main libraries, their licences and what each one does. The APK uses
+AndroidX's open-source `WebViewAssetLoader` to serve the bundled demo from a
+same-origin `https://` URL.
+
 Build it yourself:
 
 ```bash

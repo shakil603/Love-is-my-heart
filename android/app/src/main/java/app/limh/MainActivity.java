@@ -42,6 +42,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.webkit.WebViewAssetLoader;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -332,16 +334,31 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
-        settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
+        settings.setSupportZoom(false);
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
 
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
+
+        // AndroidX WebViewAssetLoader is the open-source, same-origin way to
+        // serve the bundled demo. The custom path handler keeps exact control
+        // over font and image MIME types on older WebView builds.
+        final WebViewAssetLoader assetLoader = demoMode
+                ? new WebViewAssetLoader.Builder()
+                        .addPathHandler("/", new WebViewAssetLoader.PathHandler() {
+                            @Override
+                            public WebResourceResponse handle(String path) {
+                                return serveDemoAsset(path);
+                            }
+                        })
+                        .build()
+                : null;
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -369,9 +386,8 @@ public class MainActivity extends Activity {
 
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                if (demoMode && request.getUrl() != null
-                        && DEMO_HOST.equalsIgnoreCase(request.getUrl().getHost())) {
-                    WebResourceResponse response = serveDemoAsset(request.getUrl().getPath());
+                if (demoMode && assetLoader != null && request.getUrl() != null) {
+                    WebResourceResponse response = assetLoader.shouldInterceptRequest(request.getUrl());
                     if (response != null) return response;
                 }
                 return super.shouldInterceptRequest(view, request);
@@ -511,10 +527,10 @@ public class MainActivity extends Activity {
     }
 
     private WebResourceResponse serveDemoAsset(String path) {
-        String assetPath = path == null || path.isEmpty() ? "/demo/index.html" : path;
-        if ("/demo".equals(assetPath) || "/demo/".equals(assetPath)) assetPath = "/demo/index.html";
-        if (!assetPath.startsWith("/demo/")) return null;
-        String file = assetPath.substring(1);
+        String file = path == null ? "" : path;
+        while (file.startsWith("/")) file = file.substring(1);
+        if (file.isEmpty() || "demo".equals(file) || "demo/".equals(file)) file = "demo/index.html";
+        if (!file.startsWith("demo/")) return null;
         String mime = mimeFor(file);
         boolean text = mime.startsWith("text/") || mime.contains("javascript")
                 || mime.contains("json") || mime.contains("svg");

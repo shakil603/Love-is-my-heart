@@ -434,10 +434,15 @@
       if (!profile) return "";
       const last = match.messages[match.messages.length - 1];
       const unread = unreadFor(match);
+      const preview = !last
+        ? "Start your story"
+        : last.from === "system"
+          ? "New match · say hello"
+          : (last.from === "me" ? "You: " : "") + last.text;
       return '<button class="match-item" data-act="open-chat" data-match="' + match.id + '">' +
         '<span class="match-avatar"><img src="' + profile.photo + '" alt="" /><i></i></span>' +
         '<span class="match-copy"><strong>' + esc(profile.name) + (unread ? '<b>' + unread + '</b>' : "") + '</strong>' +
-        '<p>' + (last ? (last.from === "me" ? "You: " : last.from === "system" ? "" : "") + esc(last.text) : "Start your story") + '</p></span>' +
+        '<p>' + esc(preview) + '</p></span>' +
         '<span class="match-time">' + (last ? timeAgo(last.at) : "") + '</span></button>';
     }).join("") + '</div>';
     return body;
