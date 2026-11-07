@@ -1,40 +1,44 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { preferences } from "@/db/schema";
-import { ensureSeed, getAppState } from "@/lib/server-state";
-import { INTENTIONS, INTERESTS } from "@/lib/catalog";
+import { getApiUser } from "@/lib/session";
+import { getAppState } from "@/lib/server-state";
+import { firstIssue, preferencesSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
 export async function PUT(request: Request) {
   try {
-    await ensureSeed();
-    const body = (await request.json()) as Partial<{
-      minAge: number;
-      maxAge: number;
-      maxDistance: number;
-      lookingFor: string;
-      interests: string[];
-      verifiedOnly: boolean;
-    }>;
-    const minAge = Math.max(18, Math.min(80, Math.round(Number(body.minAge ?? 24))));
-    const maxAge = Math.max(minAge, Math.min(90, Math.round(Number(body.maxAge ?? 36))));
+    const current = await getApiUser();
+    if (!current) {
+      return NextResponse.json({ error: "Sign in to save preferences" }, { status: 401 });
+    }
+
+    const parsed = preferencesSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstIssue(parsed.error) }, { status: 400 });
+    }
+    const input = parsed.data;
+    const minAge = Math.min(input.minAge, input.maxAge);
+    const maxAge = Math.max(input.minAge, input.maxAge);
+
     const values = {
-      id: "alex",
+      userId: current.id,
       minAge,
       maxAge,
-      maxDistance: Math.max(1, Math.min(100, Math.round(Number(body.maxDistance ?? 25)))),
-      lookingFor: INTENTIONS.includes(body.lookingFor as (typeof INTENTIONS)[number])
-        ? (body.lookingFor as string)
-        : "Any intention",
-      interests: Array.isArray(body.interests)
-        ? body.interests.filter((interest) => INTERESTS.includes(interest as (typeof INTERESTS)[number])).slice(0, 8)
-        : [],
-      verifiedOnly: Boolean(body.verifiedOnly),
+      maxDistance: input.maxDistance,
+      lookingFor: input.lookingFor,
+      interests: input.interests,
+      verifiedOnly: input.verifiedOnly,
       updatedAt: new Date(),
     };
-    await db.insert(preferences).values(values).onConflictDoUpdate({ target: preferences.id, set: values });
-    return NextResponse.json({ state: await getAppState() });
+
+    await db
+      .insert(preferences)
+      .values(values)
+      .onConflictDoUpdate({ target: preferences.userId, set: values });
+
+    return NextResponse.json({ state: await getAppState(current.id) });
   } catch (error) {
     console.error("Preference update failed", error);
     return NextResponse.json({ error: "Could not save preferences" }, { status: 500 });

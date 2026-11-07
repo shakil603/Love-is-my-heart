@@ -1,0 +1,31 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# next.js
+.next
+out
+build
+next-env.d.ts
+*.tsbuildinfo
+
+# environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# local database & uploads
+.data
+public/uploads/*
+!public/uploads/.gitkeep
+
+# tooling
+.DS_Store
+coverage
+dist
+*.log
+
+# android build diagnostics
+android-build.log
+*.apk.idsig

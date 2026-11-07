@@ -15,10 +15,11 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import ProfileDetails from "@/components/profile-details";
 import { Modal, Toggle, VerifiedBadge } from "@/components/ui";
 import { INTERESTS, INTENTIONS } from "@/lib/catalog";
+import { distanceLabel } from "@/lib/cities";
 import { getMatchInsight, passesPreferences } from "@/lib/matching";
 import type { AppState, DiscoveryAction, Preferences, Profile } from "@/lib/types";
 
@@ -33,6 +34,8 @@ export default function Discovery({
   externalProfile,
   onCloseExternal,
   onMessage,
+  onBlock,
+  onReport,
 }: {
   state: AppState;
   busy: boolean;
@@ -42,6 +45,8 @@ export default function Discovery({
   externalProfile: Profile | null;
   onCloseExternal: () => void;
   onMessage: (profile: Profile) => void;
+  onBlock?: (profile: Profile) => void | Promise<void>;
+  onReport?: (profile: Profile, reason: string, details: string) => void | Promise<void>;
 }) {
   const [sort, setSort] = useState<SortMode>("for-you");
   const [filterOpen, setFilterOpen] = useState(false);
@@ -50,9 +55,10 @@ export default function Discovery({
   const [saving, setSaving] = useState(false);
   const [exitDirection, setExitDirection] = useState(1);
 
-  useEffect(() => {
-    if (filterOpen) setDraft(state.preferences);
-  }, [filterOpen, state.preferences]);
+  function openFilters() {
+    setDraft(state.preferences);
+    setFilterOpen(true);
+  }
 
   const interacted = useMemo(() => new Set(state.interactions.map((item) => item.profileId)), [state.interactions]);
   const matched = useMemo(() => new Set(state.matches.map((item) => item.profileId)), [state.matches]);
@@ -105,7 +111,7 @@ export default function Discovery({
           <h2>People worth slowing down for.</h2>
           <p>{eligible.length} people fit your preferences · {candidates.length} still to meet</p>
         </div>
-        <button className="button button-outline filter-button" onClick={() => setFilterOpen(true)}>
+        <button className="button button-outline filter-button" onClick={openFilters}>
           <SlidersHorizontal size={17} /> Preferences
           {(state.preferences.verifiedOnly || state.preferences.interests.length > 0) ? <span className="filter-dot" /> : null}
         </button>
@@ -157,14 +163,14 @@ export default function Discovery({
                       <div className="discovery-card-shade" />
                       <div className="card-topline">
                         <span className="compatibility-pill"><Sparkles size={13} /> {profileInsight.score}% aligned</span>
-                        {profile.newHere ? <span className="new-pill">New here</span> : null}
+                        {profile.isDemo ? <span className="new-pill demo-pill">Sample profile</span> : profile.newHere ? <span className="new-pill">New here</span> : null}
                       </div>
                       <motion.div className="swipe-stamp like-stamp" style={{ opacity: 0 }} whileDrag={{ opacity: 0 }}>LIKE</motion.div>
                       <div className="discovery-card-copy">
                         <span className={`status-label ${profile.lastActive === "Active now" ? "online" : ""}`}>{profile.lastActive}</span>
                         <h3>{profile.name}, {profile.age} {profile.verified ? <VerifiedBadge /> : null}</h3>
                         <p>{profile.occupation}</p>
-                        <span className="card-location"><MapPin size={14} /> {profile.neighborhood} · {profile.distance.toFixed(1)} km</span>
+                        <span className="card-location"><MapPin size={14} /> {profile.area || profile.city} · {distanceLabel(profile.distance)}</span>
                         <div className="card-interest-row">
                           {profile.interests.slice(0, 3).map((interest) => <span key={interest}>{interest}</span>)}
                         </div>
@@ -213,7 +219,7 @@ export default function Discovery({
           <h3>{eligible.length === 0 ? "Your preferences are a little too specific." : "That is everyone in this edit."}</h3>
           <p>{eligible.length === 0 ? "Widen your distance, age range or interests to meet more people." : "Quality over an endless queue. Undo a choice, or explore the people who already like you."}</p>
           <div>
-            <button className="button button-dark" onClick={() => setFilterOpen(true)}><SlidersHorizontal size={17} /> Adjust preferences</button>
+            <button className="button button-dark" onClick={openFilters}><SlidersHorizontal size={17} /> Adjust preferences</button>
             {state.interactions.length ? <button className="button button-outline" onClick={onUndo}><Undo2 size={17} /> Undo last choice</button> : null}
           </div>
         </motion.div>
@@ -230,8 +236,8 @@ export default function Discovery({
         </div>
         <div className="filter-section">
           <div className="filter-label"><label htmlFor="distance">Maximum distance</label><strong>{draft.maxDistance} km</strong></div>
-          <input id="distance" className="single-range" type="range" min="1" max="50" value={draft.maxDistance} onChange={(event) => setDraft({ ...draft, maxDistance: Number(event.target.value) })} />
-          <div className="range-labels"><span>1 km</span><span>50 km</span></div>
+          <input id="distance" className="single-range" type="range" min="1" max="500" value={draft.maxDistance} onChange={(event) => setDraft({ ...draft, maxDistance: Number(event.target.value) })} />
+          <div className="range-labels"><span>1 km</span><span>500 km</span></div>
         </div>
         <div className="filter-section">
           <label htmlFor="intention">Relationship intention</label>
@@ -241,7 +247,7 @@ export default function Discovery({
           <div className="filter-label"><label>Shared interests</label><small>Choose up to 6</small></div>
           <div className="filter-interests">{INTERESTS.map((interest) => <button key={interest} className={draft.interests.includes(interest) ? "selected" : ""} onClick={() => toggleInterest(interest)}>{draft.interests.includes(interest) ? <Check size={13} /> : null}{interest}</button>)}</div>
         </div>
-        <div className="filter-switch"><div><strong>Verified profiles only</strong><small>Only show people with a verified photo</small></div><Toggle checked={draft.verifiedOnly} onChange={(verifiedOnly) => setDraft({ ...draft, verifiedOnly })} label="Verified profiles only" /></div>
+        <div className="filter-switch"><div><strong>Verified members only</strong><small>Only show people who confirmed their email</small></div><Toggle checked={draft.verifiedOnly} onChange={(verifiedOnly) => setDraft({ ...draft, verifiedOnly })} label="Verified profiles only" /></div>
         <button className="button button-dark filter-apply" disabled={saving} onClick={applyFilters}>{saving ? <LoaderCircle className="spin" size={18} /> : <Check size={18} />} Show my matches</button>
       </Modal>
 
@@ -253,6 +259,8 @@ export default function Discovery({
         onClose={() => { setSelected(null); onCloseExternal(); }}
         onAction={onAction}
         onMessage={onMessage}
+        onBlock={onBlock}
+        onReport={onReport}
       />
     </div>
   );

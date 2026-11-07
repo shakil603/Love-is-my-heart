@@ -1,0 +1,75 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/build-apk.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: Assemble debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out the branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build the APK
+        working-directory: android
+        env:
+          # Optional: a repository variable can pre-fill the server address in
+          # the setup screen. The app opens its bundled offline demo by default,
+          # so no deployment URL is baked in.
+          LIMH_APP_URL: ${{ vars.LIMH_APP_URL }}
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          ls -lh app/build/outputs/apk/debug/
+
+      - name: Copy the APK into the web app
+        run: |
+          mkdir -p public/downloads
+          cp android/app/build/outputs/apk/debug/app-debug.apk public/downloads/love-is-my-heart.apk
+          sha256sum public/downloads/love-is-my-heart.apk | tee public/downloads/love-is-my-heart.apk.sha256
+          ls -lh public/downloads/
+
+      - name: Keep a workflow artifact too
+        uses: actions/upload-artifact@v4
+        with:
+          name: love-is-my-heart-apk
+          path: |
+            public/downloads/love-is-my-heart.apk
+            public/downloads/love-is-my-heart.apk.sha256
+          if-no-files-found: error
+
+      - name: Commit the APK back to this branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/downloads/love-is-my-heart.apk public/downloads/love-is-my-heart.apk.sha256
+          if git diff --cached --quiet; then
+            echo "APK unchanged, nothing to commit."
+            exit 0
+          fi
+          git commit -m "Build Love Is My Heart Android APK [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

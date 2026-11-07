@@ -1,187 +1,322 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/db";
-import { interactions, matches, members, messages, preferences, profiles } from "@/db/schema";
-import { seedMember, seedPreferences, seedProfiles } from "@/lib/catalog";
-import type { AppState, Interaction, Match, Message, Profile } from "@/lib/types";
+import { ensureDatabase } from "@/db/setup";
+import {
+  blocks,
+  interactions,
+  matches,
+  members,
+  messages,
+  preferences,
+  user,
+} from "@/db/schema";
+import { demoModeEnabled } from "@/lib/demo";
+import { haversineKm } from "@/lib/cities";
+import { passesPreferences } from "@/lib/matching";
+import type {
+  AppState,
+  Interaction,
+  Match,
+  Member,
+  Message,
+  Preferences,
+  Profile,
+} from "@/lib/types";
 
-let seedPromise: Promise<void> | null = null;
-
-async function seed() {
-  await db.insert(profiles).values(seedProfiles).onConflictDoNothing();
-  await db.insert(members).values(seedMember).onConflictDoNothing();
-  await db.insert(preferences).values(seedPreferences).onConflictDoNothing();
-
-  const createdAt = new Date();
-  await db
-    .insert(matches)
-    .values([
-      {
-        id: "match_theo",
-        profileId: "theo",
-        origin: "seed",
-        unread: 1,
-        createdAt,
-        lastMessageAt: createdAt,
-      },
-      {
-        id: "match_amara",
-        profileId: "amara",
-        origin: "seed",
-        unread: 0,
-        createdAt: new Date(createdAt.getTime() - 86400000),
-        lastMessageAt: new Date(createdAt.getTime() - 3600000),
-      },
-    ])
-    .onConflictDoNothing();
-
-  const existingMessages = await db.select({ id: messages.id }).from(messages).limit(1);
-  if (existingMessages.length === 0) {
-    await db.insert(messages).values([
-      {
-        matchId: "match_theo",
-        sender: "them",
-        body: "Your note about travelling slowly caught my eye. What place would you go back to just for one meal?",
-        createdAt: new Date(createdAt.getTime() - 1800000),
-      },
-      {
-        matchId: "match_amara",
-        sender: "system",
-        body: "You liked each other. A favourite trail and an unhurried Sunday sounded like a good place to begin.",
-        createdAt: new Date(createdAt.getTime() - 86400000),
-      },
-      {
-        matchId: "match_amara",
-        sender: "you",
-        body: "Your ideal Sunday sounds dangerously close to mine. Where is your favourite trail near London?",
-        createdAt: new Date(createdAt.getTime() - 7200000),
-      },
-      {
-        matchId: "match_amara",
-        sender: "them",
-        body: "The ridge walk around Hassocks. Proper lunch in Lewes afterwards is non-negotiable.",
-        createdAt: new Date(createdAt.getTime() - 3600000),
-      },
-    ]);
+export class OnboardingRequiredError extends Error {
+  constructor() {
+    super("Finish setting up your profile first");
+    this.name = "OnboardingRequiredError";
   }
 }
 
-export async function ensureSeed() {
-  if (!seedPromise) {
-    seedPromise = seed().catch((error) => {
-      seedPromise = null;
-      throw error;
-    });
-  }
-  return seedPromise;
+const DAY = 24 * 60 * 60 * 1000;
+
+function lastActiveLabel(row: typeof members.$inferSelect) {
+  if (!row.showOnline) return "Recently active";
+  const elapsed = Date.now() - row.lastActiveAt.getTime();
+  if (elapsed < 5 * 60 * 1000) return "Active now";
+  if (elapsed < 60 * 60 * 1000) return `Active ${Math.max(1, Math.round(elapsed / 60000))}m ago`;
+  if (elapsed < DAY) return "Active today";
+  if (elapsed < 7 * DAY) return "Active this week";
+  return "Recently active";
 }
 
-function serializeProfile(profile: typeof profiles.$inferSelect): Profile {
+export function serializeProfile(
+  row: typeof members.$inferSelect,
+  viewer: typeof members.$inferSelect,
+  likesYou: boolean,
+): Profile {
+  const distance = haversineKm(
+    { lat: viewer.lat, lng: viewer.lng },
+    { lat: row.lat, lng: row.lng },
+  );
   return {
-    id: profile.id,
-    name: profile.name,
-    age: profile.age,
-    gender: profile.gender,
-    city: profile.city,
-    neighborhood: profile.neighborhood,
-    distance: profile.distance,
-    occupation: profile.occupation,
-    bio: profile.bio,
-    photo: profile.photo,
-    photoAlt: profile.photoAlt,
-    interests: profile.interests,
-    languages: profile.languages,
-    lookingFor: profile.lookingFor,
-    promptQuestion: profile.promptQuestion,
-    promptAnswer: profile.promptAnswer,
-    idealSunday: profile.idealSunday,
-    verified: profile.verified,
-    likesYou: profile.likesYou,
-    newHere: profile.newHere,
-    lastActive: profile.lastActive,
-    height: profile.height,
-    education: profile.education,
-    drinking: profile.drinking,
-    smoking: profile.smoking,
-    workout: profile.workout,
-    anthem: profile.anthem,
+    id: row.id,
+    name: row.name,
+    age: row.age,
+    gender: row.gender,
+    city: row.city,
+    area: row.area,
+    neighborhood: row.area,
+    distance: Math.round(distance * 10) / 10,
+    occupation: row.occupation,
+    bio: row.bio,
+    photo: row.photo || "/placeholder.jpg",
+    photoAlt: row.photoAlt || `Photo of ${row.name}`,
+    photos: row.photos.length ? row.photos : row.photo ? [row.photo] : [],
+    interests: row.interests,
+    languages: row.languages,
+    lookingFor: row.lookingFor,
+    promptQuestion: row.promptQuestion,
+    promptAnswer: row.promptAnswer,
+    idealSunday: row.idealSunday,
+    verified: row.verified,
+    likesYou,
+    newHere: Date.now() - row.createdAt.getTime() < 14 * DAY,
+    isDemo: row.isDemo,
+    lastActive: lastActiveLabel(row),
+    height: row.height,
+    education: row.education,
+    drinking: row.drinking,
+    smoking: row.smoking,
+    workout: row.workout,
+    anthem: row.anthem,
   };
 }
 
-export async function getAppState(): Promise<AppState> {
-  await ensureSeed();
-  const [profileRows, interactionRows, matchRows, messageRows, preferenceRows, memberRows] =
+function serializeMember(
+  row: typeof members.$inferSelect,
+  email: string,
+  emailVerified: boolean,
+): Member {
+  return {
+    id: row.id,
+    email,
+    name: row.name,
+    age: row.age,
+    gender: row.gender,
+    city: row.city,
+    area: row.area,
+    bio: row.bio,
+    photo: row.photo || "/placeholder.jpg",
+    photos: row.photos.length ? row.photos : row.photo ? [row.photo] : [],
+    lookingFor: row.lookingFor,
+    interests: row.interests,
+    occupation: row.occupation,
+    languages: row.languages,
+    promptQuestion: row.promptQuestion,
+    promptAnswer: row.promptAnswer,
+    idealSunday: row.idealSunday,
+    height: row.height,
+    education: row.education,
+    drinking: row.drinking,
+    smoking: row.smoking,
+    workout: row.workout,
+    anthem: row.anthem,
+    // A member counts as verified once they have confirmed their email address.
+    verified: row.verified || emailVerified,
+    isDemo: row.isDemo,
+    onboardingComplete: row.onboardingComplete,
+    showOnline: row.showOnline,
+    readReceipts: row.readReceipts,
+    notifications: row.notifications,
+  };
+}
+
+const activityWrites = new Map<string, number>();
+
+function touchActivity(viewerId: string) {
+  const last = activityWrites.get(viewerId) ?? 0;
+  if (Date.now() - last < 60_000) return;
+  activityWrites.set(viewerId, Date.now());
+  void db
+    .update(members)
+    .set({ lastActiveAt: new Date() })
+    .where(eq(members.id, viewerId))
+    .catch(() => undefined);
+}
+
+export async function getMemberRow(userId: string) {
+  await ensureDatabase();
+  const [row] = await db.select().from(members).where(eq(members.id, userId)).limit(1);
+  return row ?? null;
+}
+
+export async function getAppState(viewerId: string): Promise<AppState> {
+  await ensureDatabase();
+
+  const [viewerRow] = await db
+    .select()
+    .from(members)
+    .where(eq(members.id, viewerId))
+    .limit(1);
+  if (!viewerRow) throw new OnboardingRequiredError();
+
+  touchActivity(viewerId);
+
+  const [authUser] = await db
+    .select({ email: user.email, emailVerified: user.emailVerified })
+    .from(user)
+    .where(eq(user.id, viewerId))
+    .limit(1);
+
+  const [blockRows, preferenceRows, matchRows, viewerInteractionRows, likesYouRows] =
     await Promise.all([
-      db.select().from(profiles).orderBy(asc(profiles.id)),
-      db.select().from(interactions).where(eq(interactions.memberId, "alex")).orderBy(desc(interactions.createdAt)),
-      db.select().from(matches).where(eq(matches.memberId, "alex")).orderBy(desc(matches.lastMessageAt)),
-      db.select().from(messages).orderBy(asc(messages.createdAt), asc(messages.id)),
-      db.select().from(preferences).where(eq(preferences.id, "alex")).limit(1),
-      db.select().from(members).where(eq(members.id, "alex")).limit(1),
+      db
+        .select()
+        .from(blocks)
+        .where(or(eq(blocks.blockerId, viewerId), eq(blocks.blockedId, viewerId))),
+      db.select().from(preferences).where(eq(preferences.userId, viewerId)).limit(1),
+      db
+        .select()
+        .from(matches)
+        .where(or(eq(matches.userAId, viewerId), eq(matches.userBId, viewerId)))
+        .orderBy(desc(matches.lastMessageAt)),
+      db
+        .select()
+        .from(interactions)
+        .where(eq(interactions.fromUserId, viewerId))
+        .orderBy(desc(interactions.createdAt)),
+      db
+        .select()
+        .from(interactions)
+        .where(
+          and(
+            eq(interactions.toUserId, viewerId),
+            inArray(interactions.action, ["like", "superlike"]),
+          ),
+        ),
     ]);
 
-  const profileMap = new Map(profileRows.map((profile) => [profile.id, serializeProfile(profile)]));
+  const blockedIds = new Set(
+    blockRows.map((row) => (row.blockerId === viewerId ? row.blockedId : row.blockerId)),
+  );
+  const likedBy = new Set(likesYouRows.map((row) => row.fromUserId));
+
+  const preference = preferenceRows[0];
+  const preferencesState: Preferences = {
+    id: viewerId,
+    minAge: preference?.minAge ?? 18,
+    maxAge: preference?.maxAge ?? 60,
+    maxDistance: preference?.maxDistance ?? 150,
+    lookingFor: preference?.lookingFor ?? "Any intention",
+    interests: preference?.interests ?? [],
+    verifiedOnly: preference?.verifiedOnly ?? false,
+  };
+
+  const otherRows = await db
+    .select()
+    .from(members)
+    .where(and(ne(members.id, viewerId), eq(members.onboardingComplete, true)));
+  const unblockedRows = otherRows.filter((row) => !blockedIds.has(row.id));
+  // Matches keep their partner even if the viewer later narrows their filters.
+  const profileById = new Map(
+    unblockedRows.map((row) => [row.id, serializeProfile(row, viewerRow, likedBy.has(row.id))]),
+  );
+  const visibleProfiles = [...profileById.values()].filter((profile) =>
+    passesPreferences(profile, preferencesState),
+  );
+
+  const matchIds = matchRows.map((row) => row.id);
+  const messageRows = matchIds.length
+    ? await db
+        .select()
+        .from(messages)
+        .where(inArray(messages.matchId, matchIds))
+        .orderBy(asc(messages.id))
+    : [];
+
   const matchState: Match[] = matchRows.flatMap((match) => {
-    const profile = profileMap.get(match.profileId);
+    const partnerId = match.userAId === viewerId ? match.userBId : match.userAId;
+    const profile = profileById.get(partnerId);
     if (!profile) return [];
+    const conversation = messageRows.filter((message) => message.matchId === match.id);
     return [
       {
         id: match.id,
-        profileId: match.profileId,
+        profileId: partnerId,
         origin: match.origin,
-        unread: match.unread,
+        unread: conversation.filter(
+          (message) => message.senderId === partnerId && !message.readAt,
+        ).length,
         createdAt: match.createdAt.toISOString(),
         lastMessageAt: match.lastMessageAt.toISOString(),
         profile,
-        messages: messageRows
-          .filter((message) => message.matchId === match.id)
-          .map(
-            (message): Message => ({
-              id: message.id,
-              matchId: message.matchId,
-              sender: message.sender as Message["sender"],
-              body: message.body,
-              createdAt: message.createdAt.toISOString(),
-            }),
-          ),
+        messages: conversation.map(
+          (message): Message => ({
+            id: message.id,
+            matchId: message.matchId,
+            sender:
+              message.senderId === "system"
+                ? "system"
+                : message.senderId === viewerId
+                  ? "you"
+                  : "them",
+            body: message.body,
+            createdAt: message.createdAt.toISOString(),
+            readAt: message.readAt?.toISOString() ?? null,
+          }),
+        ),
       },
     ];
   });
 
-  const interactionState: Interaction[] = interactionRows.map((interaction) => ({
-    profileId: interaction.profileId,
-    action: interaction.action as Interaction["action"],
-    createdAt: interaction.createdAt.toISOString(),
-  }));
+  const interactionState: Interaction[] = viewerInteractionRows
+    .filter((row) => profileById.has(row.toUserId) && row.action !== "pass")
+    .map((row) => ({
+      profileId: row.toUserId,
+      action: row.action as Interaction["action"],
+      createdAt: row.createdAt.toISOString(),
+    }));
 
-  const preference = preferenceRows[0];
-  const member = memberRows[0];
-  if (!preference || !member) throw new Error("Member state could not be initialised");
+  // Passes are kept in `interactions` for undo, but the deck needs them too.
+  const passes: Interaction[] = viewerInteractionRows
+    .filter((row) => row.action === "pass")
+    .map((row) => ({
+      profileId: row.toUserId,
+      action: "pass",
+      createdAt: row.createdAt.toISOString(),
+    }));
 
   return {
-    profiles: profileRows.map(serializeProfile),
+    profiles: visibleProfiles,
     matches: matchState,
-    interactions: interactionState,
-    preferences: {
-      id: preference.id,
-      minAge: preference.minAge,
-      maxAge: preference.maxAge,
-      maxDistance: preference.maxDistance,
-      lookingFor: preference.lookingFor,
-      interests: preference.interests,
-      verifiedOnly: preference.verifiedOnly,
-    },
-    member: {
-      id: member.id,
-      name: member.name,
-      age: member.age,
-      city: member.city,
-      bio: member.bio,
-      photo: member.photo,
-      lookingFor: member.lookingFor,
-      interests: member.interests,
-      showOnline: member.showOnline,
-      readReceipts: member.readReceipts,
-      notifications: member.notifications,
-    },
+    interactions: [...interactionState, ...passes],
+    preferences: preferencesState,
+    member: serializeMember(viewerRow, authUser?.email ?? "", Boolean(authUser?.emailVerified)),
+    demoMode: demoModeEnabled(),
+    blockedProfileIds: [...blockedIds],
   };
+}
+
+/** Lightweight polling payload used by the live-update stream. */
+export async function getLiveFingerprint(viewerId: string) {
+  const [matchRows, incoming] = await Promise.all([
+    db
+      .select({ id: matches.id, lastMessageAt: matches.lastMessageAt })
+      .from(matches)
+      .where(or(eq(matches.userAId, viewerId), eq(matches.userBId, viewerId))),
+    db
+      .select({ id: interactions.id })
+      .from(interactions)
+      .where(
+        and(
+          eq(interactions.toUserId, viewerId),
+          inArray(interactions.action, ["like", "superlike"]),
+        ),
+      ),
+  ]);
+
+  const matchIds = matchRows.map((row) => row.id);
+  const [lastMessage] = matchIds.length
+    ? await db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(inArray(messages.matchId, matchIds))
+        .orderBy(desc(messages.id))
+        .limit(1)
+    : [];
+
+  return `${matchRows.length}:${incoming.length}:${lastMessage?.id ?? 0}`;
 }

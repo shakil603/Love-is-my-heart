@@ -6,17 +6,20 @@ import { useEffect, type ReactNode } from "react";
 
 export function Logo({ dark = false }: { dark?: boolean }) {
   return (
-    <span className={`brand ${dark ? "brand-dark" : ""}`} aria-label="Velora home">
+    <span className={`brand ${dark ? "brand-dark" : ""}`} aria-label="Love Is My Heart home">
       <span className="brand-mark" aria-hidden="true">
         <span />
         <span />
       </span>
-      <span>velora</span>
+      <span className="brand-type">
+        <span className="brand-name">Love Is My Heart</span>
+        <span className="brand-short">L I M H</span>
+      </span>
     </span>
   );
 }
 
-export function VerifiedBadge({ label = "Photo verified" }: { label?: string }) {
+export function VerifiedBadge({ label = "Verified member" }: { label?: string }) {
   return (
     <span className="verified-badge" title={label}>
       <Check size={11} strokeWidth={3} aria-hidden="true" />

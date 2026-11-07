@@ -1,9 +1,8 @@
-import VeloraApp from "@/components/velora-app";
-import { getAppState } from "@/lib/server-state";
+import Landing from "@/components/landing";
+import { demoModeEnabled } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
-  const state = await getAppState();
-  return <VeloraApp initialState={state} />;
+export default function HomePage() {
+  return <Landing demoMode={demoModeEnabled()} />;
 }

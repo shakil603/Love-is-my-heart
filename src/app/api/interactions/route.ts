@@ -1,85 +1,170 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { interactions, matches, messages, profiles } from "@/db/schema";
-import { ensureSeed, getAppState } from "@/lib/server-state";
+import { blocks, interactions, matches as matchesTable, members, messages, preferences } from "@/db/schema";
+import { maybeDemoReciprocate } from "@/lib/demo";
+import { announceMatch, createMatchBetween, findMatchBetween } from "@/lib/matches";
+import { rateLimit } from "@/lib/rate-limit";
+import { getApiUser } from "@/lib/session";
+import { passesPreferences } from "@/lib/matching";
+import { getAppState, OnboardingRequiredError, serializeProfile } from "@/lib/server-state";
 import type { DiscoveryAction } from "@/lib/types";
+import { firstIssue, interactionSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    await ensureSeed();
-    const body = (await request.json()) as { action?: DiscoveryAction | "undo"; profileId?: string };
+    const current = await getApiUser();
+    if (!current) return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
+
+    const limit = rateLimit(`interaction:${current.id}`, 150, 60_000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Give yourself a moment before the next choice." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
+      );
+    }
+
+    const parsed = interactionSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstIssue(parsed.error) }, { status: 400 });
+    }
+    const body = parsed.data;
 
     if (body.action === "undo") {
       const [latest] = await db
         .select()
         .from(interactions)
-        .where(eq(interactions.memberId, "alex"))
+        .where(eq(interactions.fromUserId, current.id))
         .orderBy(desc(interactions.id))
         .limit(1);
       if (!latest) return NextResponse.json({ error: "Nothing to undo" }, { status: 400 });
 
       await db.delete(interactions).where(eq(interactions.id, latest.id));
-      const [match] = await db
-        .select()
-        .from(matches)
-        .where(and(eq(matches.memberId, "alex"), eq(matches.profileId, latest.profileId)))
-        .limit(1);
+
+      const match = await findMatchBetween(current.id, latest.toUserId);
       if (match?.origin === "discovery") {
-        const conversation = await db.select({ id: messages.id }).from(messages).where(eq(messages.matchId, match.id));
-        const hasConversation = conversation.length > 1;
-        if (!hasConversation) await db.delete(matches).where(eq(matches.id, match.id));
+        const conversation = await db
+          .select({ id: messages.id })
+          .from(messages)
+          .where(eq(messages.matchId, match.id));
+        if (conversation.length <= 1) {
+          await db.delete(messages).where(eq(messages.matchId, match.id));
+          await db.delete(matchesTable).where(eq(matchesTable.id, match.id));
+        }
       }
-      return NextResponse.json({ state: await getAppState(), restoredProfileId: latest.profileId });
+
+      return NextResponse.json({
+        state: await getAppState(current.id),
+        restoredProfileId: latest.toUserId,
+      });
     }
 
-    if (!body.profileId || !["like", "pass", "superlike"].includes(body.action ?? "")) {
-      return NextResponse.json({ error: "A profile and valid action are required" }, { status: 400 });
+    if (!body.profileId) {
+      return NextResponse.json({ error: "A profile is required" }, { status: 400 });
     }
     const action = body.action as DiscoveryAction;
-    const [profile] = await db.select().from(profiles).where(eq(profiles.id, body.profileId)).limit(1);
-    if (!profile) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+
+    if (body.profileId === current.id) {
+      return NextResponse.json({ error: "That is your own profile" }, { status: 400 });
+    }
+
+    const [viewer] = await db
+      .select()
+      .from(members)
+      .where(eq(members.id, current.id))
+      .limit(1);
+    const [target] = await db
+      .select()
+      .from(members)
+      .where(eq(members.id, body.profileId))
+      .limit(1);
+    if (!viewer) throw new OnboardingRequiredError();
+    if (!target || !target.onboardingComplete) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    const [blocked] = await db
+      .select({ id: blocks.id })
+      .from(blocks)
+      .where(
+        or(
+          and(eq(blocks.blockerId, current.id), eq(blocks.blockedId, target.id)),
+          and(eq(blocks.blockerId, target.id), eq(blocks.blockedId, current.id)),
+        ),
+      )
+      .limit(1);
+    if (blocked) return NextResponse.json({ error: "This profile is not available" }, { status: 403 });
+
+    const [preference] = await db
+      .select()
+      .from(preferences)
+      .where(eq(preferences.userId, current.id))
+      .limit(1);
+    const preferencesState = {
+      id: current.id,
+      minAge: preference?.minAge ?? 18,
+      maxAge: preference?.maxAge ?? 60,
+      maxDistance: preference?.maxDistance ?? 150,
+      lookingFor: preference?.lookingFor ?? "Any intention",
+      interests: preference?.interests ?? [],
+      verifiedOnly: preference?.verifiedOnly ?? false,
+    };
+    if (!passesPreferences(serializeProfile(target, viewer, false), preferencesState)) {
+      return NextResponse.json(
+        { error: "This person is outside your current filters" },
+        { status: 400 },
+      );
+    }
 
     await db
       .insert(interactions)
-      .values({ memberId: "alex", profileId: profile.id, action, createdAt: new Date() })
+      .values({ fromUserId: current.id, toUserId: target.id, action, createdAt: new Date() })
       .onConflictDoUpdate({
-        target: [interactions.memberId, interactions.profileId],
+        target: [interactions.fromUserId, interactions.toUserId],
         set: { action, createdAt: new Date() },
       });
 
     let matchId: string | undefined;
-    if ((action === "like" || action === "superlike") && profile.likesYou) {
-      matchId = `match_${profile.id}`;
-      const inserted = await db
-        .insert(matches)
-        .values({
-          id: matchId,
-          memberId: "alex",
-          profileId: profile.id,
-          origin: "discovery",
-          unread: 0,
-          createdAt: new Date(),
-          lastMessageAt: new Date(),
-        })
-        .onConflictDoNothing()
-        .returning({ id: matches.id });
-      if (inserted.length > 0) {
-        await db.insert(messages).values({
-          matchId,
-          sender: "system",
-          body: `You and ${profile.name} liked each other. Start with something specific from their profile.`,
-        });
+
+    if (action === "like" || action === "superlike") {
+      const [reciprocal] = await db
+        .select({ id: interactions.id })
+        .from(interactions)
+        .where(
+          and(
+            eq(interactions.fromUserId, target.id),
+            eq(interactions.toUserId, current.id),
+            inArray(interactions.action, ["like", "superlike"]),
+          ),
+        )
+        .limit(1);
+
+      if (reciprocal) {
+        const { id, created } = await createMatchBetween(current.id, target.id, "discovery");
+        matchId = id;
+        if (created) await announceMatch(id, target.name);
+      } else if (target.isDemo) {
+        // Sample profiles sometimes reciprocate, based on shared interests.
+        matchId =
+          (await maybeDemoReciprocate(
+            current.id,
+            viewer.interests,
+            target,
+            action === "superlike",
+          )) ?? undefined;
       }
     }
 
     return NextResponse.json({
-      state: await getAppState(),
-      outcome: { action, profileId: profile.id, matchId },
+      state: await getAppState(current.id),
+      outcome: { action, profileId: target.id, matchId },
     });
   } catch (error) {
+    if (error instanceof OnboardingRequiredError) {
+      return NextResponse.json({ error: error.message, onboarding: true }, { status: 409 });
+    }
     console.error("Interaction failed", error);
     return NextResponse.json({ error: "Could not save that action" }, { status: 500 });
   }

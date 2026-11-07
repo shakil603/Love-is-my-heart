@@ -25,13 +25,15 @@ type DateIdea = { title: string; detail: string; area: string };
 function dateIdeas(match: Match): DateIdea[] {
   const interests = match.profile.interests;
   const ideas: DateIdea[] = [];
-  if (interests.includes("Independent cinema")) ideas.push({ title: "A film & a proper debrief", detail: "The Garden Cinema, followed by a drink nearby", area: "Covent Garden" });
-  if (interests.includes("Art galleries")) ideas.push({ title: "Art, then coffee", detail: "Tate Modern and a slow walk along the river", area: "Bankside" });
-  if (interests.includes("Street food") || interests.includes("Cooking")) ideas.push({ title: "A market lunch", detail: "Pick three dishes to share at Borough Market", area: "London Bridge" });
-  if (interests.includes("Live music") || interests.includes("Electronic music")) ideas.push({ title: "A small gig", detail: "An early set at The Social, with time to talk first", area: "Fitzrovia" });
-  if (interests.includes("Bookshops")) ideas.push({ title: "Books & a glass of wine", detail: "Browse Review Bookshop, then choose a bottle to share", area: "Peckham" });
-  if (interests.includes("Hiking")) ideas.push({ title: "A walk with a view", detail: "The Hampstead Heath circular, ending at a neighbourhood pub", area: "Hampstead" });
-  ideas.push({ title: "Coffee with no rush", detail: `A quiet table for two near ${match.profile.neighborhood}`, area: match.profile.neighborhood });
+  const area = match.profile.area || match.profile.city;
+  const where = match.profile.city;
+  if (interests.includes("Independent cinema")) ideas.push({ title: "A film & a proper debrief", detail: "A small independent cinema, then a drink somewhere you can talk", area: where });
+  if (interests.includes("Art galleries")) ideas.push({ title: "Art, then coffee", detail: "A gallery you have both never seen, and a slow walk afterwards", area: where });
+  if (interests.includes("Street food") || interests.includes("Cooking")) ideas.push({ title: "A market lunch", detail: "Pick three dishes to share at a market you both like", area: where });
+  if (interests.includes("Live music") || interests.includes("Electronic music")) ideas.push({ title: "A small gig", detail: "An early set, with time to talk before the room fills up", area: where });
+  if (interests.includes("Bookshops")) ideas.push({ title: "Books & a glass of wine", detail: "Browse a bookshop, then choose a bottle to share", area: where });
+  if (interests.includes("Hiking")) ideas.push({ title: "A walk with a view", detail: "A proper trail, ending at a neighbourhood café", area: where });
+  ideas.push({ title: "Coffee with no rush", detail: `A quiet table for two near ${area}`, area });
   return ideas.slice(0, 3);
 }
 
@@ -124,7 +126,7 @@ export default function Messages({
 
         {selected ? (
           <section className="chat-panel">
-            <header className="chat-header"><button className="mobile-chat-back icon-button" onClick={() => onSelect(null)} aria-label="Back to conversations"><ArrowLeft size={20} /></button><button className="chat-person" onClick={() => onViewProfile(selected)}><Avatar src={selected.profile.photo} alt={selected.profile.photoAlt} size={44} /><span><strong>{selected.profile.name} {selected.profile.verified ? <VerifiedBadge /> : null}</strong><small>{selected.profile.lastActive} · {selected.profile.neighborhood}</small></span></button><button className="button button-outline plan-button" onClick={() => setPlannerOpen(true)}><CalendarDays size={16} /> Plan a date</button></header>
+            <header className="chat-header"><button className="mobile-chat-back icon-button" onClick={() => onSelect(null)} aria-label="Back to conversations"><ArrowLeft size={20} /></button><button className="chat-person" onClick={() => onViewProfile(selected)}><Avatar src={selected.profile.photo} alt={selected.profile.photoAlt} size={44} /><span><strong>{selected.profile.name} {selected.profile.verified ? <VerifiedBadge /> : null}</strong><small>{selected.profile.isDemo ? "Sample profile · " : ""}{selected.profile.lastActive} · {selected.profile.area || selected.profile.city}</small></span></button><button className="button button-outline plan-button" onClick={() => setPlannerOpen(true)}><CalendarDays size={16} /> Plan a date</button></header>
             <div className="message-scroll">
               <div className="chat-origin"><Avatar src={selected.profile.photo} alt="" size={68} /><h3>You and {selected.profile.name} found each other.</h3><p>{getSharedCopy(selected, state.member.interests)}</p></div>
               <AnimatePresence initial={false}>
