@@ -550,17 +550,13 @@
       '<div class="permission-list">' +
       row("Internet", "Required", "Loads the bundled demo, or the server address you choose.", "on") +
       row("Photos", "On demand", "The system picker opens only when you tap Choose. The app never scans your gallery.", "on") +
-      row("Camera", "Declared", "Requested in Android setup; there is no in-app camera yet.", "off") +
-      row("Microphone", "Declared", "Requested in Android setup; voice notes are not built.", "off") +
-      row("Contacts", "Declared", "Requested in Android setup; the demo does not read contacts.", "off") +
-      row("Location", "Declared", "Requested in Android setup; distance still uses the city you type.", "off") +
-      row("Phone, SMS, call logs", "Declared", "Requested in Android setup; the demo never reads or sends these.", "off") +
-      row("Calendar", "Declared", "Requested in Android setup; no calendar feature is connected.", "off") +
-      row("Media and storage", "Declared", "Requested in Android setup for older devices; the picker needs no storage permission.", "off") +
-      row("Notifications", "Declared", "Requested on Android 13+; the demo does not post notifications.", "off") +
+      row("Notifications", "Not requested", "The demo has no push or background notifications.", "off") +
+      row("Camera / microphone", "Not requested", "There is no in-app camera or voice note feature.", "off") +
+      row("Contacts, location, phone, SMS, call logs, calendar", "Not requested", "No feature needs them, and Play Protect blocks installs that ask for them without a core feature.", "off") +
+      row("Broad storage", "Not requested", "The photo picker returns only the image you choose.", "off") +
       '</div>' +
-      '<p class="demo-note"><strong>Owner request:</strong> these groups were added to match the reference permission screens. The demo code does not read them. For a Play release, remove every group without a core feature and complete the Play Console declaration, or the listing can be rejected.</p>',
-      '<div class="sheet-actions"><button class="btn btn-outline" data-act="open-android-permissions">Android setup</button><button class="btn btn-primary" data-act="close-overlay">Got it</button></div>');
+      '<p class="demo-note">Android Settings lists every permission an app declares. This build declares only network access; the previous sensitive permissions were removed because Play Protect blocked installation. Add a permission only together with the feature that uses it.</p>',
+      '<div class="sheet-actions"><button class="btn btn-primary" data-act="close-overlay">Got it</button></div>');
   }
 
   function sheetOverlay(name) {
@@ -1055,13 +1051,6 @@
     else if (act === "change-photo") {
       const input = document.getElementById("photo-input");
       if (input) input.click();
-    }
-    else if (act === "open-android-permissions") {
-      if (/Android/i.test(navigator.userAgent)) {
-        window.location.href = "limh://permissions";
-      } else {
-        showToast("Android permission setup is available in the APK.");
-      }
     }
     else if (act === "save-filters") saveFilters();
     else if (act === "save-prefs") savePrefs();
